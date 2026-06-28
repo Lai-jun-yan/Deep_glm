@@ -74,3 +74,31 @@ plt.ylabel("Subjects")
 
 plt.show()
 
+import statsmodels.api as sm
+
+# 自變數
+X = df_gray[["X1", "X2", "X3"]]
+
+# 加入截距項
+X = sm.add_constant(X)
+
+# 建立模型
+model = sm.OLS(df_gray["Y"], X).fit()
+
+# 查看結果
+print(model.summary())
+
+print("")
+print("-------------------------------------------------------------------------------------------------------")
+
+# 自變數
+x = df[["x1", "x2", "x3"]]
+
+# 加入截距項
+x = sm.add_constant(x)
+
+# 建立模型
+model_origin = sm.OLS(df["y"], x).fit()
+
+# 查看結果
+print(model_origin.summary())
