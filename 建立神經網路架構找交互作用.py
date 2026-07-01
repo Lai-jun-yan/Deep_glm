@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 
-data = pd.read_csv(r"C:\Users\USER\Desktop\碩論\程式碼\embedding_data.csv")
+data = pd.read_csv("/home/lai/Deep_glm/embedding_data.csv") #調整讀檔路徑
 
 X = data.iloc[:,:-1]
 y = data["Y"]
@@ -129,4 +129,5 @@ plt.plot(corr_history, label="Correction")
 plt.xlabel("Epoch")
 plt.ylabel("Loss")
 plt.legend()
+plt.savefig("/home/lai/Deep_glm/interaction_attention.png", dpi=300, bbox_inches="tight")
 plt.show()
