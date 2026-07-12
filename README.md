@@ -6,7 +6,7 @@
 
 ---
 
-## Current Progress (2026-07-10)
+## Current Progress (2026-07-12)
 
 ### Completed
 
@@ -16,16 +16,17 @@
 
 ### Current Findings
 
-- 碰到attention matrix訓練完後collapse的問題。
-- 所有的變數X都必須依賴某一個變數，與模擬資料不符。
+- 用attention擬合殘差，可能會有main effect的效果在裡面。
+- 解釋z的部分，因為是變數之間的非線性關係函數，所以會是最重要的部分
 
 ---
 
 ## Next Steps
 
-- [ ] 確認sofmax過程中，運算是否出現問題
-- [ ] 檢查score是否有數值膨脹的問題
+- [x] 確認sofmax過程中，運算是否出現問題
+- [x] 檢查score是否有數值膨脹的問題
 - [x] 視覺化attention matrix
+- [ ] 與老師討論模型的可行性
 - [ ] 完成attention_adjust這個branch
 
 ---
