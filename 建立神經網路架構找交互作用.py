@@ -1,133 +1,194 @@
 import pandas as pd
 import numpy as np
-
-data = pd.read_csv("/home/lai/Deep_glm/embedding_data.csv") #調整讀檔路徑
-
-X = data.iloc[:,:-1]
-y = data["Y"]
-
 import torch
-
-X_tensor = torch.tensor(
-    X.values,
-    dtype=torch.float32
-)
-
-y_tensor = torch.tensor(
-    y.values,
-    dtype=torch.float32
-)
-
-y_tensor = y_tensor.unsqueeze(1)
-
 import torch.nn as nn
+import torch.nn.functional as F
+import matplotlib.pyplot as plt
+import seaborn as sns
 
-class FeatureNet(nn.Module):
+# 先讀進模擬資料
+data = pd.read_csv(r"C:\Users\USER\Desktop\碩論\程式碼\embedding_data.csv")
 
-    def __init__(self):
-        super().__init__()
+cols = ["X2","X3","X1"] # 針對變數標準化，後面做softmax的時候，數值才不會爆掉
 
-        self.fc1 = nn.Linear(3,16)
-        self.relu = nn.ReLU()
-        self.fc2 = nn.Linear(16,3)
+data[cols] = (data[cols] - data[cols].mean()) / data[cols].std()
 
-    def forward(self, x):
+# 為了測試模型架構，先使用第一筆資料
+test = data.iloc[0,:3]
 
-        delta = self.fc1(x)
+shape = (8,1) # 投影成8維，為了方便後續的attention計算
 
-        delta = self.relu(delta)
+### 定義需要學習的地方
+random = torch.randn(shape, requires_grad = True) # 需要學習的地方
 
-        delta = self.fc2(delta)
+test = torch.tensor(test, dtype = torch.float32) # tensor毛好多，統一設定dtype = float32
 
-        z = x + delta
+test = test.reshape(1,3)
 
-        return z, delta
-    
-class GLMLayer(nn.Module):
+wq_shape = (4,8) # KQ space先設定4維，反正比embedding的小
 
-    def __init__(self):
+wq = torch.randn(wq_shape, requires_grad = True) # 需要學習的地方
 
-        super().__init__()
+wk_shape = (4,8)
 
-        self.linear = nn.Linear(3,1)
+wk = torch.randn(wq_shape, requires_grad = True) # 需要學習的地方
 
-    def forward(self,z):
+wv_shape = (8,8) # 需要變回原本embedding的維度
 
-        return self.linear(z)
+wv = torch.randn(wv_shape, requires_grad = True) # 需要學習的地方
 
+# y = 0.2*x1 + 1.5*x2 + 0.8*x3 可以從匯出模擬資料.ipynb得到正確的模型模擬
+y_true = data.iloc[0]["Y"] 
 
-feature_net = FeatureNet()
+y_true = torch.tensor(y_true, dtype = torch.float32)
 
-glm_layer = GLMLayer()
+proj = nn.Linear(8,1)
 
-z, delta = feature_net(X_tensor)
+linear = nn.Linear(3,1)
 
-y_hat = glm_layer(z)
-
-criterion = nn.MSELoss()
-
-import torch.optim as optim
-
-model_params = list(feature_net.parameters()) + list(glm_layer.parameters())
-
-optimizer = optim.Adam(model_params, lr=1e-5)
-
-epochs = 20000
-lambda_reg = 0.01
+optimizer = torch.optim.Adam(
+    [random,wq,wk,wv]+
+    list(proj.parameters())+
+    list(linear.parameters()),
+    lr=0.001
+)
 
 loss_history = []
-mse_history = []
-corr_history = []
+
+initial_attn = None
+
+
+epochs = 1000
 
 for epoch in range(epochs):
 
-    # ---------- Forward ----------
-    z, delta = feature_net(X_tensor)
+    # =====================
+    # Forward propagation
+    # =====================
 
-    y_hat = glm_layer(z)
+    E = random @ test
 
-    # ---------- Loss ----------
-    prediction_loss = criterion(y_hat, y_tensor)
 
-    correction_loss = torch.mean(delta**2)
+    Q = wq @ E
+    K = wk @ E
 
-    loss = prediction_loss + lambda_reg * correction_loss
+    scores = K.T @ Q
+    scores = scores / (4 ** 0.5)
 
-    # loss = prediction_loss
+    attn = F.softmax(scores, dim=0)
 
-    # ---------- Backpropagation ----------
+
+    # 儲存第一次 attention
+    if epoch == 0:
+        initial_attn = attn.detach().clone()
+
+
+    V = wv @ E
+
+    delta_E = V @ attn
+
+    New_E = E + delta_E
+
+
+    # Prediction
+
+    z = proj(New_E.T)
+
+    z = z.reshape(1,-1)
+
+    y_hat = linear(z)
+
+
+    # Loss
+
+    loss = (y_true - y_hat.squeeze())**2
+
+    loss_history.append(loss.item())
+
+
+    # Backpropagation
+
     optimizer.zero_grad()
 
     loss.backward()
 
     optimizer.step()
 
-    # ------------存下模型的學習軌跡------------
-    if epoch % 1 == 0:  # 建議先全部存，之後再決定畫不畫
-        loss_history.append(loss.item())
-        mse_history.append(prediction_loss.item())
-        corr_history.append(correction_loss.item())
 
-    # ---------- Print ----------
-    if epoch % 200 == 0:
 
-        print(
-            f"Epoch {epoch:4d} | "
-            f"Total={loss.item():.4f} | "
-            f"MSE={prediction_loss.item():.4f} | "
-            f"Correction={correction_loss.item():.4f}"
-        )
+# =====================
+# 訓練完成後重新 forward
+# 取得最後 attention
+# =====================
 
-import matplotlib.pyplot as plt
+with torch.no_grad():
 
-plt.figure()
+    random_re = random.reshape(-1,1)
 
-plt.plot(loss_history, label="Total Loss")
-plt.plot(mse_history, label="MSE")
-plt.plot(corr_history, label="Correction")
+    E = random_re @ test
+
+    Q = wq @ E
+
+    K = wk @ E
+
+    scores = K.T @ Q
+
+    scores = scores / (4 ** 0.5)
+
+    final_attn = F.softmax(scores, dim=0)
+
+
+### 看一下最後得到的attention weight matrix
+print("Initial Attention Matrix:")
+print(initial_attn)
+
+
+print("\nFinal Attention Matrix:")
+print(final_attn)
+
+# =====================
+# 畫 loss curve 看模型學習的趨勢
+# =====================
+
+plt.figure(figsize=(6,4))
+
+plt.plot(loss_history)
 
 plt.xlabel("Epoch")
-plt.ylabel("Loss")
-plt.legend()
-plt.savefig("/home/lai/Deep_glm/interaction_attention.png", dpi=300, bbox_inches="tight")
+
+plt.ylabel("MSE Loss")
+
+plt.title("Training Loss")
+
+plt.show()
+
+### 可視化attention matrix
+# 設定變數名稱
+labels = cols
+
+fig, axes = plt.subplots(1,2,figsize=(10,4))
+
+sns.heatmap(
+    initial_attn.detach().numpy(),
+    annot=True,
+    fmt=".3f",
+    xticklabels=labels,
+    yticklabels=labels,
+    ax=axes[0]
+)
+
+axes[0].set_title("Initial Attention")
+
+
+sns.heatmap(
+    final_attn.detach().numpy(),
+    annot=True,
+    fmt=".3f",
+    xticklabels=labels,
+    yticklabels=labels,
+    ax=axes[1]
+)
+
+axes[1].set_title("Final Attention")
+
 plt.show()
