@@ -125,9 +125,7 @@ for epoch in range(epochs):
 
 with torch.no_grad():
 
-    random_re = random.reshape(-1,1)
-
-    E = random_re @ test
+    E = random @ test
 
     Q = wq @ E
 
