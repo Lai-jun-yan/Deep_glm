@@ -6,12 +6,12 @@
 
 ---
 
-## Current Progress (2026-07-14)
+## Current Progress (2026-07-15)
 
 ### Completed
 
 - 目前已經可以得到訓練完成的attention weight matrix
-- attention weight matrix 只針對某一筆資料中的一個row
+- 了解attention matrix套入GLM的地方
 
 ### Current Findings
 
@@ -21,9 +21,9 @@
 
 ## Next Steps
 
-- [ ] 了解在產生attention之前，是否會先設計loss
-- [x] 視覺化attention weight matrix
-- [ ] 與老師討論模型的可行性
+- [x] 拓展attention到整筆資料
+- [ ] 測試attention matrix的穩定性
+- [ ] 完成GLM的beta估計
 - [ ] 完成attention_adjust這個branch
 
 ---
