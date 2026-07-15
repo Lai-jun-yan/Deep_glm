@@ -31,6 +31,8 @@ wq = torch.randn(wq_shape, requires_grad = True) # 需要學習的地方
 
 wk_shape = (4,8)
 
+dk = 4
+
 wk = torch.randn(wq_shape, requires_grad = True) # 需要學習的地方
 
 wv_shape = (8,8) # 需要變回原本embedding的維度
@@ -133,7 +135,7 @@ with torch.no_grad():
 
     scores = K.T @ Q
 
-    scores = scores / (4 ** 0.5)
+    scores = scores / (dk ** 0.5)
 
     final_attn = F.softmax(scores, dim=0)
 
