@@ -6,7 +6,7 @@
 
 ---
 
-## Current Progress (2026-07-16)
+## Current Progress (2026-07-17)
 
 ### Completed
 
@@ -16,6 +16,7 @@
 ### Current Findings
 
 - attention weight matrix的效果非常不穩定，可能是因為模型需要學習太多參數
+- embedding的解釋要仔細，到底是可以訓練還是依照原始資料的觀測值決定
 - 重複訓練多次之後，效果仍然不穩定，甚至有些loss不收斂
 
 ---
