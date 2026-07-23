@@ -10,26 +10,24 @@
 
 ### Completed
 
-- 目前已經可以得到訓練完成的attention weight matrix
-- 獲得XTX矩陣
+- 完成部分scenarioA的模擬資料
 - 重新設計attention matrix套入GLM的地方
 
 ### Current Findings
 
 - attention weight matrix的效果非常不穩定，可能是因為模型需要學習太多參數
-- embedding的解釋要仔細，到底是可以訓練還是依照原始資料的觀測值決定
-- 重複訓練多次之後，效果仍然不穩定，甚至有些loss不收斂
+- 重新預測多次之後，要估計的β符合預期
 
 ---
 
 ## Next Steps
 
 - [x] 拓展attention到整筆資料
-- [x] 測試attention matrix的穩定性
+- [x] 測試估計β的穩定性
 - [ ] 完成scenario A的資料模擬
 - [ ] 與老師討論
-- [x] 完成GLM的beta估計
-- [ ] 完成attention_adjust這個branch
+- [x] 探討是否要減少模型學習的自由度
+- [x] 完成attention_adjust這個branch
 
 ---
 當研究生好累🥲
