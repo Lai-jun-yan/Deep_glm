@@ -1,481 +1,288 @@
 import pandas as pd
 import numpy as np
+
+# 先讀進模擬資料
+data = pd.read_csv(r"C:\Users\USER\Desktop\碩論\程式碼\embedding_data.csv")
+
+cols = ["X2","X3","X1"] # 針對變數標準化，後面做softmax的時候，數值才不會爆掉
+
+data[cols] = (data[cols] - data[cols].mean()) / data[cols].std()
+
+whole = data.copy()
+
+data = data.iloc[0:8,:]
+
+validation = whole.iloc[70:100,:]
+
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
-import matplotlib.pyplot as plt
-import seaborn as sns
-
-
-# =========================
-# 讀資料
-# =========================
-
-data = pd.read_csv(
-    r"C:\Users\USER\Desktop\碩論\程式碼\embedding_data.csv"
-)
-
-
-cols = ["X2","X3","X1"]
-
-
-# standardization
-
-data[cols] = (
-    data[cols]
-    -
-    data[cols].mean()
-) / data[cols].std()
-
-
 
 X = torch.tensor(
     data[cols].values,
     dtype=torch.float32
 )
 
-
 y = torch.tensor(
     data["Y"].values,
     dtype=torch.float32
 )
 
+# y_true = y.mean()
+
+# y_true = y_true.reshape(1,1)
 
 N = X.shape[0]
 P = X.shape[1]
 
+import torch.nn as nn
 
+embedding_dim = len(data)
+dk = 4
 
-# =========================
-# Hyper parameters
-# =========================
+wq = torch.randn(
+    dk,
+    embedding_dim,
+    requires_grad=True
+)
 
-embedding_dim = 2
-dk = 2
+wk = torch.randn(
+    dk,
+    embedding_dim,
+    requires_grad=True
+)
+
+# 先不需要V
+# wv = torch.randn(
+#     embedding_dim,
+#     embedding_dim,
+#     requires_grad=True
+# )
+
+# proj = nn.Linear(
+#     embedding_dim,
+#     1
+# )
+
+# linear = nn.Linear(
+#     P,
+#     1
+# )
+
+optimizer = torch.optim.Adam(
+
+    [wq,wk], # wv
+
+    # +list(proj.parameters())
+
+    # +list(linear.parameters()),
+
+    lr=0.001
+
+)
+
+import numpy as np
+import torch.nn.functional as F
+
+lam = 1
+
+p = X.shape[1]
+
+I = torch.eye(
+    p,
+    dtype=X.dtype,
+    device=X.device
+)
+
+loss_history = []
+
+initial_attn = None
 
 epochs = 1000
 
-n_seed = 20
+for epoch in range(epochs):
 
+    E = X
 
+    Q = wq @ E
 
-# =========================
-# 儲存不同seed attention
-# =========================
+    K = wk @ E
 
-attention_results = []
+    scores = K.T @ Q 
 
-loss_results = []
+    scores = scores / np.sqrt(dk)
 
+    attn = F.softmax(
+        scores,
+        dim=0
+    )
 
+    A = attn @ attn.T + lam * I
 
-# =========================
-# 多次訓練
-# =========================
+    # beta
+    beta = torch.linalg.solve(
+    X.T @ X + A,
+    X.T @ y
+    )
 
-for seed in range(n_seed):
+    # V = wv @ E
 
-    print(
-        "Training seed:",
-        seed
+    # delta_E = V @ attn
+
+    # New_E = E + delta_E
+
+    # z = proj(
+    # New_E.T
+    # )
+
+    # z = z.reshape(1,-1)
+
+    # y_hat = linear(z)
+
+#    mse_loss = F.mse_loss(
+#    y_hat,
+#    y
+#    )
+
+#    lambda_attn=0.1
+
+#    loss = (
+#        mse_loss
+#        +
+#        lambda_attn *
+#        torch.mean(attn**2)
+#    )
+
+    y_hat = X @ beta
+
+    loss = F.mse_loss(
+    y_hat,
+    y
     )
 
 
-    torch.manual_seed(seed)
-    np.random.seed(seed)
+    if epoch == 0:
+        initial_attn = attn.detach().clone()
+
+        mean_initial_attn = initial_attn.mean(dim=0)
+
+        print(E.shape)
+
+        print(Q.shape)
+
+        print(K.shape)
+
+        print(scores.shape)
+
+        print(attn.shape)
+
+        # print(V.shape)
+
+        # print(delta_E.shape)
+
+        # print(New_E.shape)
+
+        # print(z.shape)
+
+        print(y_hat.shape)
+        
+        print(y.shape)
 
 
-
-    # -------------------------
-    # 初始化參數
-    # -------------------------
-
-    random = torch.randn(
-        embedding_dim,
-        1,
-        requires_grad=False
+    loss_history.append(
+        loss.item()
     )
 
+    optimizer.zero_grad()
 
-    wq = torch.randn(
-        dk,
-        embedding_dim,
-        requires_grad=True
+    loss.backward()
+
+    optimizer.step()
+
+# =====================
+# 訓練完成後重新 forward
+# 取得最後 attention
+# =====================
+
+with torch.no_grad():
+
+    E = X
+
+    Q = wq @ E
+
+    K = wk @ E
+
+    scores = K.T @ Q 
+
+    scores = scores / np.sqrt(dk)
+
+    attn = F.softmax(
+        scores,
+        dim=0
     )
 
+    final_attn = attn.clone()
 
-    wk = torch.randn(
-        dk,
-        embedding_dim,
-        requires_grad=True
-    )
+# =====================
+# Average attention matrix across all samples
+# =====================
 
+# mean_attn = final_attn.mean(dim=0)
 
-    wv = torch.randn(
-        embedding_dim,
-        embedding_dim,
-        requires_grad=True
-    )
+import matplotlib.pyplot as plt
 
+plt.plot(loss_history)
+plt.xlabel("Epoch")
+plt.ylabel("Loss")
+plt.show()
 
+import matplotlib.pyplot as plt
+import seaborn as sns
+# 轉成 numpy
+attn_matrix = final_attn.detach().numpy()
 
-    proj = nn.Linear(
-        embedding_dim,
-        1
-    )
-
-
-    linear = nn.Linear(
-        P,
-        1
-    )
-
-
-
-    optimizer = torch.optim.Adam(
-
-        [
-            wq,
-            wk,
-            wv
-        ]
-        +
-        list(proj.parameters())
-        +
-        list(linear.parameters()),
-
-        lr=0.001
-
-    )
-
-
-
-    loss_history = []
-
-
-
-    # =========================
-    # training
-    # =========================
-
-    for epoch in range(epochs):
-
-
-        # embedding
-
-        E = (
-            random.unsqueeze(0)
-            *
-            X.unsqueeze(1)
-        )
-
-
-
-        # Q
-
-        Q = torch.matmul(
-            wq.unsqueeze(0),
-            E
-        )
-
-
-        # K
-
-        K = torch.matmul(
-            wk.unsqueeze(0),
-            E
-        )
-
-
-
-        # attention score
-
-        scores = torch.matmul(
-
-            K.transpose(1,2),
-
-            Q
-
-        )
-
-
-        scores = scores / np.sqrt(dk)
-
-
-
-        attn = F.softmax(
-            scores,
-            dim=1
-        )
-
-
-
-        # V
-
-        V = torch.matmul(
-            wv.unsqueeze(0),
-            E
-        )
-
-
-        delta_E = torch.matmul(
-            V,
-            attn
-        )
-
-
-        New_E = E + delta_E
-
-
-
-        # projection
-
-        z = proj(
-            New_E.transpose(1,2)
-        )
-
-
-        z = z.squeeze(-1)
-
-
-
-        # prediction
-
-        y_hat = linear(z)
-
-        y_hat = y_hat.squeeze()
-
-
-
-        loss = F.mse_loss(
-            y_hat,
-            y
-        )
-
-
-
-        optimizer.zero_grad()
-
-        loss.backward()
-
-        optimizer.step()
-
-
-
-        loss_history.append(
-            loss.item()
-        )
-
-
-
-    loss_results.append(
-        loss_history
-    )
-
-
-
-    # =========================
-    # training完成後取得attention
-    # =========================
-
-    with torch.no_grad():
-
-
-        E = (
-            random.unsqueeze(0)
-            *
-            X.unsqueeze(1)
-        )
-
-
-
-        Q = torch.matmul(
-            wq.unsqueeze(0),
-            E
-        )
-
-
-        K = torch.matmul(
-            wk.unsqueeze(0),
-            E
-        )
-
-
-
-        scores = torch.matmul(
-
-            K.transpose(1,2),
-
-            Q
-
-        )
-
-
-        scores = scores / np.sqrt(dk)
-
-
-
-        attn = F.softmax(
-            scores,
-            dim=1
-        )
-
-
-
-        # average over samples
-
-        mean_attn = attn.mean(
-            dim=0
-        )
-
-
-
-        attention_results.append(
-            mean_attn.cpu().numpy()
-        )
-
-
-
-print("Training finished")
-
-
-
-# =========================
-# Attention stability analysis
-# =========================
-
-
-attention_array = np.array(
-    attention_results
-)
-
-
-print(
-    "attention shape:",
-    attention_array.shape
-)
-
-
-
-# mean attention
-
-mean_attention = (
-    attention_array.mean(axis=0)
-)
-
-
-
-# standard deviation
-
-sd_attention = (
-    attention_array.std(axis=0)
-)
-
-
-
+# 設定變數名稱
 labels = cols
 
-
-
-# =========================
-# Mean attention
-# =========================
-
-
-plt.figure(
-    figsize=(5,4)
-)
-
+plt.figure(figsize=(5,4))
 
 sns.heatmap(
-
-    mean_attention,
-
-    annot=True,
-
-    fmt=".3f",
-
+    attn_matrix,
+    annot=True,        # 顯示數值
+    fmt=".3f",         # 小數三位
     xticklabels=labels,
-
-    yticklabels=labels
-
+    yticklabels=labels,
+    cmap="viridis"
 )
 
-
-plt.title(
-    "Mean Attention across 20 seeds"
-)
-
+plt.xlabel("Target variable")
+plt.ylabel("Source variable")
+plt.title("Attention Weight Matrix")
 
 plt.show()
 
+fig, axes = plt.subplots(1,2,figsize=(10,4))
 
-
-# =========================
-# Attention instability
-# =========================
-
-
-plt.figure(
-    figsize=(5,4)
+sns.heatmap(
+    initial_attn.detach().numpy(),
+    annot=True,
+    fmt=".3f",
+    xticklabels=labels,
+    yticklabels=labels,
+    ax=axes[0]
 )
+
+axes[0].set_title("Initial Attention")
 
 
 sns.heatmap(
-
-    sd_attention,
-
+    final_attn.detach().numpy(),
     annot=True,
-
     fmt=".3f",
-
     xticklabels=labels,
-
-    yticklabels=labels
-
+    yticklabels=labels,
+    ax=axes[1]
 )
 
-
-plt.title(
-    "Attention instability (SD)"
-)
-
-
-plt.show()
-
-
-
-# =========================
-# Loss curve
-# =========================
-
-
-plt.figure(
-    figsize=(6,4)
-)
-
-
-for i in range(n_seed):
-
-    plt.plot(
-        loss_results[i],
-        alpha=0.3
-    )
-
-
-plt.xlabel(
-    "Epoch"
-)
-
-
-plt.ylabel(
-    "Loss"
-)
-
-
-plt.title(
-    "Training loss across seeds"
-)
+axes[1].set_title("Final Attention")
 
 
 plt.show()
