@@ -6,15 +6,17 @@ import numpy as np
 
 data = pd.read_csv(r"C:\Users\USER\Desktop\碩論\程式碼\A\raw_data.csv")
 
-cols = data.columns[:-1].to_list() # 針對變數標準化，後面做softmax的時候，數值才不會爆掉
-
-data[cols] = (data[cols] - data[cols].mean()) / data[cols].std()
+cols = data.columns[:-1].to_list() 
 
 whole = data.copy()
 
-data = data.iloc[0:100,:]
+data = whole.iloc[0:100,:]
+
+data[cols] = (data[cols] - data[cols].mean()) / data[cols].std() # 針對變數標準化，後面做softmax的時候，數值才不會爆掉
 
 validation = whole.iloc[100:200,:]
+
+validation[cols] = (validation[cols] - validation[cols].mean()) / validation[cols].std()
 
 ### 先用傳統統計模型驗證
 X = data[cols]
@@ -329,3 +331,91 @@ axes[1].set_title("Final Attention")
 
 
 plt.show()
+
+### 做驗證
+
+beta_ols = result.params.values
+beta_attn = beta1.detach().numpy()
+
+X_val = validation[cols].values
+y_val = validation["Y"].values
+
+y_pred_ols = X_val @ beta_ols
+
+y_pred_attn = X_val @ beta_attn
+
+from sklearn.metrics import mean_squared_error
+
+mse_ols = mean_squared_error(
+    y_val,
+    y_pred_ols
+)
+
+mse_attn = mean_squared_error(
+    y_val,
+    y_pred_attn
+)
+
+rmse_ols = np.sqrt(mse_ols)
+rmse_attn = np.sqrt(mse_attn)
+
+from sklearn.metrics import r2_score
+
+ols_r2 = r2_score(y_val, y_pred_ols)
+attn_r2 = r2_score(y_val, y_pred_attn)
+
+beta_table = pd.DataFrame({
+    "Variable": cols,
+    "OLS_beta": beta_ols,
+    "Attention_beta": beta_attn
+})
+
+print("\n---------------------------------------------")
+print("兩種方法估計之 Beta 比較:")
+print("-"*45)
+print(beta_table.round(6).to_string(index=False))
+print("-"*45)
+
+print("\n---------------------------------------------")
+print("透過驗證集比較兩者的表現:")
+print("-"*52)
+print(f"{'Model':<12}{'MSE':>12}{'RMSE':>12}{'R²':>12}")
+print("-"*52)
+print(f"{'OLS':<12}{mse_ols:>12.6f}{rmse_ols:>12.6f}{ols_r2:>12.6f}")
+print(f"{'Attention':<12}{mse_attn:>12.6f}{rmse_attn:>12.6f}{attn_r2:>12.6f}")
+print("-"*52)
+
+plt.figure(figsize=(6,6))
+
+plt.scatter(
+    y_val,
+    y_pred_ols,
+    facecolors="none",
+    edgecolors="blue",
+    s=60,
+    linewidth=1.5,
+    label="OLS"
+)
+
+plt.scatter(
+    y_val,
+    y_pred_attn,
+    color="red",
+    s=25,
+    alpha=0.7,
+    label="Attention"
+)
+
+low = min(y_val.min(), y_pred_ols.min(), y_pred_attn.min())
+high = max(y_val.max(), y_pred_ols.max(), y_pred_attn.max())
+
+plt.plot([low, high], [low, high], "k--")
+
+plt.xlabel("True Y")
+plt.ylabel("Predicted Y")
+plt.legend()
+plt.show()
+
+
+
+
