@@ -3,57 +3,81 @@ import pandas as pd
 
 np.random.seed(42)
 
-n = 200      # sample size
-J = 10       # number of predictors
-rho = 0.5    # correlation structure
+# ==========================
+# Simulation 2
+# High Collinearity
+# ==========================
 
-Sigma = np.zeros((J,J))
+n = 200
+J = 10
 
-for l in range(J):
-    for m in range(J):
-        Sigma[l,m] = rho ** abs(l-m)
+# --------------------------
+# 建立五個獨立latent variables
+# --------------------------
 
-X = np.random.multivariate_normal(
-    mean=np.zeros(J),
-    cov=Sigma,
-    size=n
+Z = np.random.normal(
+    0,
+    1,
+    size=(n,5)
 )
 
-# beta = np.array([
-#     1.0,
-#     0.8,
-#     0.6,
-#     0.4,
-#     0.2,
-#     0,
-#     0,
-#     0,
-#     0,
-#     0
-# ])
+noise = 0.03
 
-# 先不加截距項
-# beta0 = 1
+X = np.zeros((n,J))
 
-mu = (
-    (1 + 2*X[:,1]) * X[:,0]
-    +0.8*X[:,2]
-    +0.5*X[:,3]
-)
+# 第一組
+X[:,0] = Z[:,0]
+X[:,1] = Z[:,0] + np.random.normal(0,noise,n)
 
-# 設定 signal-to-noise ratio，避免interaction被noise蓋過去
+# 第二組
+X[:,2] = Z[:,1]
+X[:,3] = Z[:,1] + np.random.normal(0,noise,n)
+
+# 第三組
+X[:,4] = Z[:,2]
+X[:,5] = Z[:,2] + np.random.normal(0,noise,n)
+
+# 第四組
+X[:,6] = Z[:,3]
+X[:,7] = Z[:,3] + np.random.normal(0,noise,n)
+
+# 第五組
+X[:,8] = Z[:,4]
+X[:,9] = Z[:,4] + np.random.normal(0,noise,n)
+
+beta = np.array([
+    1,
+    0.8,
+    1,
+    0.8,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+])
+
+# --------------------------
+# Linear model
+# --------------------------
+
+mu = X @ beta
+
+# --------------------------
+# Noise
+# --------------------------
+
 SNR = 5
 
-
 sigma = np.sqrt(
-    np.var(mu) / SNR
+    np.var(mu)/SNR
 )
-
 
 epsilon = np.random.normal(
     0,
     sigma,
-    size=n
+    n
 )
 
 Y = mu + epsilon
@@ -85,7 +109,7 @@ model.fit(
 )
 
 # print("模型前五個係數(母體為1、0.8、0.6、0.4、0.2)")
-print(model.coef_[0:5])
+# print(model.coef_[0:5])
 
 # 存檔
-# data.to_csv(r"C:\Users\USER\Desktop\碩論\程式碼\B\raw_data.csv",index = False)
+data.to_csv(r"C:\Users\USER\Desktop\碩論\程式碼\B\raw_data.csv",index = False)

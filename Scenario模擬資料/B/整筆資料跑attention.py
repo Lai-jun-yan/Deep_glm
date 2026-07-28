@@ -14,7 +14,7 @@ data = whole.iloc[0:100,:]
 
 data[cols] = (data[cols] - data[cols].mean()) / data[cols].std() # 針對變數標準化，後面做softmax的時候，數值才不會爆掉
 
-validation = whole.iloc[100:200,:]
+validation = whole.iloc[100:500,:]
 
 validation[cols] = (validation[cols] - validation[cols].mean()) / validation[cols].std()
 
