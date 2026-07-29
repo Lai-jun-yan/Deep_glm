@@ -6,18 +6,18 @@
 
 ---
 
-## Current Progress (2026-07-28)
+## Current Progress (2026-07-29)
 
 ### Completed
 
-- 完成scenarioA的模擬資料
 - 重新設計attention matrix套入GLM的地方
 - 在scenarioB中，設計OLS會overfitting的情況
+- 以beta bias當作評估指標
 
 ### Current Findings
 
 - 在scenarioB的情況下，DeepGLM表現有提升，可是幅度不大
-- 在資料未做標準化的情況下，Deep GLM相較OLS的beta bias大幅下降
+- 在資料樣本數小且存在變數高度共線性的情況下，Deep GLM相較OLS的beta bias大幅下降
 
 ---
 
@@ -25,7 +25,7 @@
 
 - [x] 拓展attention到整筆資料
 - [x] 測試估計β的穩定性
-- [ ] 解決要加入截距項估計的維度問題
+- [ ] 測試Ridge的效果
 - [ ] 與老師討論
 - [x] 探討是否要減少模型學習的自由度
 - [x] 試試看原始資料不做標準化
