@@ -10,27 +10,27 @@ cols = data.columns[:-1].to_list()
 
 whole = data.copy()
 
-data = whole.iloc[0:100,:]
+data = whole.iloc[0:35,:]
 
 # data[cols] = (data[cols] - data[cols].mean()) / data[cols].std() # 針對變數標準化，後面做softmax的時候，數值才不會爆掉
 
-validation = whole.iloc[100:500,:]
+validation = whole.iloc[35:50,:]
 
 # validation[cols] = (validation[cols] - validation[cols].mean()) / validation[cols].std()
 
-### 先用傳統統計模型驗證
-X = data[cols]
+# ### 先用傳統統計模型驗證
+# X = data[cols]
 
-XTX = X.T @ X
+# XTX = X.T @ X
 
-y = data["Y"]
+# y = data["Y"]
 
-# beta
-beta = np.linalg.inv(X.T @ X) @ X.T @ y
+# # beta
+# beta = np.linalg.inv(X.T @ X) @ X.T @ y
 
-print("手算:")
-print(beta)
-print("---------------------------------------------")
+# print("手算:")
+# print(beta)
+# print("---------------------------------------------")
 
 # 用套件驗證
 import statsmodels.api as sm
@@ -44,9 +44,9 @@ model = sm.OLS(
 
 result = model.fit()
 
-print("套件驗證:")
-print(result.params)
-print("---------------------------------------------")
+# print("套件驗證:")
+# print(result.params)
+# print("---------------------------------------------")
 
 import torch
 
@@ -263,8 +263,8 @@ with torch.no_grad():
     X.T @ y
     )
 
-print("訓練完之後的beta:")
-print(beta1)
+# print("訓練完之後的beta:")
+# print(beta1)
 
 # =====================
 # Average attention matrix across all samples
@@ -272,65 +272,65 @@ print(beta1)
 
 # mean_attn = final_attn.mean(dim=0)
 
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 
-plt.plot(loss_history)
-plt.xlabel("Epoch")
-plt.ylabel("Loss")
-plt.show()
+# plt.plot(loss_history)
+# plt.xlabel("Epoch")
+# plt.ylabel("Loss")
+# plt.show()
 
-import matplotlib.pyplot as plt
-import seaborn as sns
-# 轉成 numpy
-attn_matrix = final_attn.detach().numpy()
+# import matplotlib.pyplot as plt
+# import seaborn as sns
+# # 轉成 numpy
+# attn_matrix = final_attn.detach().numpy()
 
-# 設定變數名稱
-labels = cols
+# # 設定變數名稱
+# labels = cols
 
-plt.figure(figsize=(5,4))
+# plt.figure(figsize=(5,4))
 
-sns.heatmap(
-    attn_matrix,
-    annot=True,        # 顯示數值
-    fmt=".3f",         # 小數三位
-    xticklabels=labels,
-    yticklabels=labels,
-    cmap="viridis"
-)
+# sns.heatmap(
+#     attn_matrix,
+#     annot=True,        # 顯示數值
+#     fmt=".3f",         # 小數三位
+#     xticklabels=labels,
+#     yticklabels=labels,
+#     cmap="viridis"
+# )
 
-plt.xlabel("Target variable")
-plt.ylabel("Source variable")
-plt.title("Attention Weight Matrix")
+# plt.xlabel("Target variable")
+# plt.ylabel("Source variable")
+# plt.title("Attention Weight Matrix")
 
-plt.show()
+# plt.show()
 
-fig, axes = plt.subplots(1,2,figsize=(10,4))
+# fig, axes = plt.subplots(1,2,figsize=(10,4))
 
-sns.heatmap(
-    initial_attn.detach().numpy(),
-    annot=True,
-    fmt=".3f",
-    xticklabels=labels,
-    yticklabels=labels,
-    ax=axes[0]
-)
+# sns.heatmap(
+#     initial_attn.detach().numpy(),
+#     annot=True,
+#     fmt=".3f",
+#     xticklabels=labels,
+#     yticklabels=labels,
+#     ax=axes[0]
+# )
 
-axes[0].set_title("Initial Attention")
-
-
-sns.heatmap(
-    final_attn.detach().numpy(),
-    annot=True,
-    fmt=".3f",
-    xticklabels=labels,
-    yticklabels=labels,
-    ax=axes[1]
-)
-
-axes[1].set_title("Final Attention")
+# axes[0].set_title("Initial Attention")
 
 
-plt.show()
+# sns.heatmap(
+#     final_attn.detach().numpy(),
+#     annot=True,
+#     fmt=".3f",
+#     xticklabels=labels,
+#     yticklabels=labels,
+#     ax=axes[1]
+# )
+
+# axes[1].set_title("Final Attention")
+
+
+# plt.show()
 
 ### 做驗證
 
@@ -364,16 +364,28 @@ from sklearn.metrics import r2_score
 ols_r2 = r2_score(y_val, y_pred_ols)
 attn_r2 = r2_score(y_val, y_pred_attn)
 
+# 模擬資料生成時的實際係數
+true_beta = pd.read_csv(
+    r"C:\Users\USER\Desktop\碩論\程式碼\B\true_beta.csv"
+)
+
+beta_true = true_beta["True_beta"].values
+ols_bias = abs(beta_ols - beta_true)
+attn_bias = abs(beta_attn - beta_true)
+
 beta_table = pd.DataFrame({
     "Variable": cols,
     "OLS_beta": beta_ols,
-    "Attention_beta": beta_attn
+    "Attention_beta": beta_attn,
+    "Simulation_beta": beta_true
 })
 
 print("\n---------------------------------------------")
 print("兩種方法估計之 Beta 比較:")
 print("-"*45)
 print(beta_table.round(6).to_string(index=False))
+print(f"OLS的係數偏差:{ols_bias.sum():.6f}")
+print(f"DeepGLM的係數偏差:{attn_bias.sum():.6f}")
 print("-"*45)
 
 print("\n---------------------------------------------")
@@ -385,36 +397,36 @@ print(f"{'OLS':<12}{mse_ols:>12.6f}{rmse_ols:>12.6f}{ols_r2:>12.6f}")
 print(f"{'Attention':<12}{mse_attn:>12.6f}{rmse_attn:>12.6f}{attn_r2:>12.6f}")
 print("-"*52)
 
-plt.figure(figsize=(6,6))
+# plt.figure(figsize=(6,6))
 
-plt.scatter(
-    y_val,
-    y_pred_ols,
-    facecolors="none",
-    edgecolors="blue",
-    s=60,
-    linewidth=1.5,
-    label="OLS"
-)
+# plt.scatter(
+#     y_val,
+#     y_pred_ols,
+#     facecolors="none",
+#     edgecolors="blue",
+#     s=60,
+#     linewidth=1.5,
+#     label="OLS"
+# )
 
-plt.scatter(
-    y_val,
-    y_pred_attn,
-    color="red",
-    s=25,
-    alpha=0.7,
-    label="Attention"
-)
+# plt.scatter(
+#     y_val,
+#     y_pred_attn,
+#     color="red",
+#     s=25,
+#     alpha=0.7,
+#     label="Attention"
+# )
 
-low = min(y_val.min(), y_pred_ols.min(), y_pred_attn.min())
-high = max(y_val.max(), y_pred_ols.max(), y_pred_attn.max())
+# low = min(y_val.min(), y_pred_ols.min(), y_pred_attn.min())
+# high = max(y_val.max(), y_pred_ols.max(), y_pred_attn.max())
 
-plt.plot([low, high], [low, high], "k--")
+# plt.plot([low, high], [low, high], "k--")
 
-plt.xlabel("True Y")
-plt.ylabel("Predicted Y")
-plt.legend()
-plt.show()
+# plt.xlabel("True Y")
+# plt.ylabel("Predicted Y")
+# plt.legend()
+# plt.show()
 
 
 

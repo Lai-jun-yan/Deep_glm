@@ -10,11 +10,11 @@ cols = data.columns[:-1].to_list()
 
 whole = data.copy()
 
-data = whole.iloc[0:350,:]
+data = whole.iloc[0:35,:]
 
 # data[cols] = (data[cols] - data[cols].mean()) / data[cols].std() # 針對變數標準化，後面做softmax的時候，數值才不會爆掉
 
-validation = whole.iloc[350:500,:]
+validation = whole.iloc[35:50,:]
 
 # validation[cols] = (validation[cols] - validation[cols].mean()) / validation[cols].std()
 
@@ -213,6 +213,15 @@ rmse_ols = np.sqrt(mse_ols)
 
 ols_r2 = r2_score(y_val, y_pred_ols)
 
+# 模擬資料生成時的實際係數
+true_beta = pd.read_csv(
+    r"C:\Users\USER\Desktop\碩論\程式碼\B\true_beta.csv"
+)
+
+beta_true = true_beta["True_beta"].values
+ols_bias = abs(beta_ols - beta_true)
+attn_bias = abs(beta_mean - beta_true)
+
 beta_summary = pd.DataFrame({
 
     "Variable":cols,
@@ -221,12 +230,16 @@ beta_summary = pd.DataFrame({
 
     "Beta_SD(DeepGLM)":beta_sd,
 
-    "OLS":result.params
+    "OLS":result.params,
+
+    "Simulation": beta_true
 
 })
 
 print(f"重複{n_repeat}次，所得到Beta的分布:")
 print(beta_summary)
+print(f"OLS的係數偏差:{ols_bias.sum():.6f}")
+print(f"DeepGLM的平均係數偏差:{attn_bias.sum():.6f}")
 print("")
 print("------------------------------------------")
 
@@ -262,21 +275,23 @@ print("評估指標的分布:")
 print(metric_summary)
 
 # 重複100次，所得到Beta的分布:
-#     Variable  Beta_mean   Beta_SD       OLS
-# X1        X1   1.276943  0.275274  2.654570
-# X2        X2   0.530943  0.275240 -0.838146
-# X3        X3   1.384366  0.284619  3.828601
-# X4        X4   0.346070  0.284978 -2.101622
-# X5        X5   0.194042  0.047124  1.643738
-# X6        X6  -0.156759  0.047254 -1.617740
-# X7        X7   0.010736  0.005100  0.051040
-# X8        X8  -0.021766  0.005279 -0.067780
-# X9        X9  -0.024090  0.009782 -0.524653
-# X10      X10   0.036443  0.009943  0.547294
+#     Variable  Beta_mean(DeepGLM)  Beta_SD(DeepGLM)       OLS  Simulation
+# X1        X1            0.833347          0.284783  1.635490         1.0
+# X2        X2            1.032992          0.283669  0.237266         0.8
+# X3        X3            0.928448          0.260072 -1.060083         1.0
+# X4        X4            0.955636          0.259930  2.988039         0.8
+# X5        X5            0.015278          0.018446  1.066174         0.0
+# X6        X6            0.066180          0.017555 -0.933764         0.0
+# X7        X7            0.224159          0.062455  2.651680         0.0
+# X8        X8            0.000009          0.064632 -2.423137         0.0
+# X9        X9           -0.035845          0.075417 -3.665030         0.0
+# X10      X10            0.215428          0.072788  3.820952         0.0
+# OLS的係數偏差:20.007084
+# DeepGLM的平均係數偏差:1.183731
 
 # ------------------------------------------
 # 評估指標的分布:
-#   Metric      Mean        SD       OLS
-# 0    MSE  1.255851  0.002510  1.241123
-# 1   RMSE  1.120647  0.001119  1.114057
-# 2     R2  0.850026  0.000300  0.851785
+#   Metric  Mean(DeepGLM)  SD(DeepGLM)       OLS
+# 0    MSE       0.798354     0.006810  0.844377
+# 1   RMSE       0.893498     0.003808  0.918900
+# 2     R2       0.764231     0.002011  0.750640

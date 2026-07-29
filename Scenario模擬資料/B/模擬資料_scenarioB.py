@@ -8,7 +8,7 @@ np.random.seed(42)
 # High Collinearity
 # ==========================
 
-n = 200
+n = 50
 J = 10
 
 # --------------------------
@@ -113,3 +113,14 @@ model.fit(
 
 # 存檔
 data.to_csv(r"C:\Users\USER\Desktop\碩論\程式碼\B\raw_data.csv",index = False)
+
+# 存 true beta
+beta_df = pd.DataFrame({
+    "Variable": [f"X{i+1}" for i in range(J)],
+    "True_beta": beta
+})
+
+beta_df.to_csv(
+    r"C:\Users\USER\Desktop\碩論\程式碼\B\true_beta.csv",
+    index=False
+)
