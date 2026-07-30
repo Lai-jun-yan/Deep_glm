@@ -213,6 +213,39 @@ rmse_ols = np.sqrt(mse_ols)
 
 ols_r2 = r2_score(y_val, y_pred_ols)
 
+# Ridge
+from sklearn.linear_model import Ridge
+# ======================
+# Split X and Y
+# ======================
+
+X_train = data[cols].values
+y_train = data["Y"].values
+
+# ======================
+# Ridge model
+# ======================
+
+ridge = Ridge(alpha=1.0, fit_intercept=False)
+
+ridge.fit(
+    X_train,
+    y_train,
+)
+
+beta_ridge = ridge.coef_
+
+y_pred_ridge = X_val @ beta_ridge
+
+mse_ridge = mean_squared_error(
+    y_val,
+    y_pred_ridge
+)
+
+rmse_ridge = np.sqrt(mse_ridge)
+
+ridge_r2 = r2_score(y_val, y_pred_ridge)
+
 # 模擬資料生成時的實際係數
 true_beta = pd.read_csv(
     r"C:\Users\USER\Desktop\碩論\程式碼\B\true_beta.csv"
@@ -220,7 +253,8 @@ true_beta = pd.read_csv(
 
 beta_true = true_beta["True_beta"].values
 ols_bias = abs(beta_ols - beta_true)
-attn_bias = abs(beta_mean - beta_true)
+attn_bias = abs(beta_mean - beta_true) # 平均係數
+ridge_bias = abs(beta_ridge - beta_true)
 
 beta_summary = pd.DataFrame({
 
@@ -232,6 +266,8 @@ beta_summary = pd.DataFrame({
 
     "OLS":result.params,
 
+    "Ridge":beta_ridge,
+
     "Simulation": beta_true
 
 })
@@ -239,6 +275,7 @@ beta_summary = pd.DataFrame({
 print(f"重複{n_repeat}次，所得到Beta的分布:")
 print(beta_summary)
 print(f"OLS的係數偏差:{ols_bias.sum():.6f}")
+print(f"Ridge的係數偏差:{ridge_bias.sum():.6f}")
 print(f"DeepGLM的平均係數偏差:{attn_bias.sum():.6f}")
 print("")
 print("------------------------------------------")
@@ -267,6 +304,12 @@ metric_summary = pd.DataFrame({
         mse_ols,
         rmse_ols,
         ols_r2
+    ],
+
+    "Ridge":[
+        mse_ridge,
+        rmse_ridge,
+        ridge_r2
     ]
 
 })
@@ -275,23 +318,24 @@ print("評估指標的分布:")
 print(metric_summary)
 
 # 重複100次，所得到Beta的分布:
-#     Variable  Beta_mean(DeepGLM)  Beta_SD(DeepGLM)       OLS  Simulation
-# X1        X1            0.833347          0.284783  1.635490         1.0
-# X2        X2            1.032992          0.283669  0.237266         0.8
-# X3        X3            0.928448          0.260072 -1.060083         1.0
-# X4        X4            0.955636          0.259930  2.988039         0.8
-# X5        X5            0.015278          0.018446  1.066174         0.0
-# X6        X6            0.066180          0.017555 -0.933764         0.0
-# X7        X7            0.224159          0.062455  2.651680         0.0
-# X8        X8            0.000009          0.064632 -2.423137         0.0
-# X9        X9           -0.035845          0.075417 -3.665030         0.0
-# X10      X10            0.215428          0.072788  3.820952         0.0
+#     Variable  Beta_mean(DeepGLM)  Beta_SD(DeepGLM)       OLS     Ridge  Simulation
+# X1        X1            0.833347          0.284783  1.635490  0.958468         1.0
+# X2        X2            1.032992          0.283669  0.237266  0.914536         0.8
+# X3        X3            0.928448          0.260072 -1.060083  0.929475         1.0
+# X4        X4            0.955636          0.259930  2.988039  0.961210         0.8
+# X5        X5            0.015278          0.018446  1.066174  0.027232         0.0
+# X6        X6            0.066180          0.017555 -0.933764  0.056189         0.0
+# X7        X7            0.224159          0.062455  2.651680  0.149983         0.0
+# X8        X8            0.000009          0.064632 -2.423137  0.078081         0.0
+# X9        X9           -0.035845          0.075417 -3.665030  0.042250         0.0
+# X10      X10            0.215428          0.072788  3.820952  0.142533         0.0
 # OLS的係數偏差:20.007084
+# Ridge的係數偏差:0.884070
 # DeepGLM的平均係數偏差:1.183731
 
 # ------------------------------------------
 # 評估指標的分布:
-#   Metric  Mean(DeepGLM)  SD(DeepGLM)       OLS
-# 0    MSE       0.798354     0.006810  0.844377
-# 1   RMSE       0.893498     0.003808  0.918900
-# 2     R2       0.764231     0.002011  0.750640
+#   Metric  Mean(DeepGLM)  SD(DeepGLM)       OLS     Ridge
+# 0    MSE       0.798354     0.006810  0.844377  0.804461
+# 1   RMSE       0.893498     0.003808  0.918900  0.896918
+# 2     R2       0.764231     0.002011  0.750640  0.762428
