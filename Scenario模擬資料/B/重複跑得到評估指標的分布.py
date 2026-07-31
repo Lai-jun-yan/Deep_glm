@@ -134,26 +134,31 @@ def train_attention_model(X, y, epochs=1000, lr=0.001):
 
         A = final_attn @ final_attn.T + lam*I
 
+        adaptive_matrix = A
+
         final_beta = torch.linalg.solve(
             X.T@X + A,
             X.T@y
         )
 
 
-    return final_beta.detach(), final_attn.detach()
+    return (
+        final_beta.detach(),
+        final_attn.detach(),
+        adaptive_matrix.detach()
+    )
 
 from sklearn.metrics import mean_squared_error
 from sklearn.metrics import r2_score
 
 n_repeat = 100
 
-
 beta_results = []
-
 mse_results = []
 rmse_results = []
 r2_results = []
 attention_results = []
+adaptive_results = []
 
 
 for seed in range(n_repeat):
@@ -162,7 +167,7 @@ for seed in range(n_repeat):
     np.random.seed(seed)
 
 
-    beta_attn, attn_matrix = train_attention_model(
+    beta_attn, attn_matrix, adaptive_matrix = train_attention_model(
         X,
         y
     )
@@ -174,6 +179,10 @@ for seed in range(n_repeat):
 
     attention_results.append(
         attn_matrix.numpy()
+    )
+
+    adaptive_results.append(
+        adaptive_matrix.numpy()
     )
 
 
@@ -367,6 +376,48 @@ for i in range(len(cols)):
 
 print("100次attention weight matrix的結果:")
 print(attention_summary)
+print("")
+
+print("------------------------------------------")
+print("100次平均的Adaptive Regularization Matrix:")
+adaptive_results = np.array(adaptive_results)
+
+adaptive_mean = adaptive_results.mean(axis=0)
+
+adaptive_sd = adaptive_results.std(axis=0)
+
+adaptive_summary = pd.DataFrame(
+    index=cols,
+    columns=cols
+)
+
+for i in range(len(cols)):
+    for j in range(len(cols)):
+        adaptive_summary.iloc[i,j] = (
+            f"{adaptive_mean[i,j]:.4f}"
+            " ± "
+            f"{adaptive_sd[i,j]:.4f}"
+        )
+
+print(adaptive_summary)
+
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+plt.figure(figsize=(6,5))
+
+sns.heatmap(
+    adaptive_mean,
+    xticklabels=cols,
+    yticklabels=cols,
+    annot=True,
+    fmt=".2f",
+    cmap="viridis"
+)
+
+plt.title("Average Adaptive Regularization Matrix")
+plt.show()
+
 
 # 重複100次，所得到Beta的分布:
 #     Variable  Beta_mean(DeepGLM)  Beta_SD(DeepGLM)       OLS     Ridge  Simulation
@@ -404,3 +455,17 @@ print(attention_summary)
 # X8   0.3096 ± 0.3832  0.3064 ± 0.3790  0.2593 ± 0.3576  0.2592 ± 0.3608  0.2198 ± 0.3457  0.2201 ± 0.3460  0.1943 ± 0.3366  0.1933 ± 0.3366  0.1892 ± 0.3365  0.1876 ± 0.3340
 # X9   0.1998 ± 0.3234  0.2002 ± 0.3248  0.1685 ± 0.3002  0.1699 ± 0.3024  0.2340 ± 0.3382  0.2364 ± 0.3412  0.2274 ± 0.3248  0.2280 ± 0.3249  0.1929 ± 0.3195  0.1925 ± 0.3193
 # X10  0.0422 ± 0.0829  0.0434 ± 0.0850  0.0560 ± 0.1309  0.0566 ± 0.1317  0.0548 ± 0.0988  0.0553 ± 0.0993  0.0809 ± 0.1698  0.0815 ± 0.1708  0.0628 ± 0.1397  0.0624 ± 0.1393
+
+# ------------------------------------------
+# 100次平均的Adaptive Regularization Matrix:
+#                   X1               X2               X3               X4               X5               X6               X7               X8               X9              X10
+# X1   1.8192 ± 1.4294  0.0138 ± 0.0189  0.0000 ± 0.0003  0.0001 ± 0.0005  0.0014 ± 0.0061  0.0006 ± 0.0023  0.0017 ± 0.0054  0.0280 ± 0.0738  0.0156 ± 0.0587  0.0016 ± 0.0087
+# X2   0.0138 ± 0.0189  1.1554 ± 0.6116  0.0003 ± 0.0020  0.0003 ± 0.0023  0.0014 ± 0.0074  0.0006 ± 0.0029  0.0021 ± 0.0050  0.0692 ± 0.1729  0.0284 ± 0.1082  0.0025 ± 0.0134
+# X3   0.0000 ± 0.0003  0.0003 ± 0.0020  1.3384 ± 0.8841  0.0212 ± 0.0258  0.0082 ± 0.0378  0.0012 ± 0.0040  0.0011 ± 0.0034  0.0158 ± 0.0513  0.0990 ± 0.1743  0.0062 ± 0.0138
+# X4   0.0001 ± 0.0005  0.0003 ± 0.0023  0.0212 ± 0.0258  1.3693 ± 1.0198  0.0025 ± 0.0090  0.0008 ± 0.0027  0.0016 ± 0.0056  0.0191 ± 0.0548  0.0498 ± 0.0917  0.0040 ± 0.0089
+# X5   0.0014 ± 0.0061  0.0014 ± 0.0074  0.0082 ± 0.0378  0.0025 ± 0.0090  2.0187 ± 1.0362  0.4926 ± 0.4502  0.0008 ± 0.0066  0.0011 ± 0.0064  0.0021 ± 0.0167  0.0003 ± 0.0015
+# X6   0.0006 ± 0.0023  0.0006 ± 0.0029  0.0012 ± 0.0040  0.0008 ± 0.0027  0.4926 ± 0.4502  1.3576 ± 0.3927  0.0004 ± 0.0021  0.0011 ± 0.0051  0.0014 ± 0.0124  0.0002 ± 0.0011
+# X7   0.0017 ± 0.0054  0.0021 ± 0.0050  0.0011 ± 0.0034  0.0016 ± 0.0056  0.0008 ± 0.0066  0.0004 ± 0.0021  1.1094 ± 0.1310  0.3893 ± 0.3905  0.0063 ± 0.0255  0.0014 ± 0.0053
+# X8   0.0280 ± 0.0738  0.0692 ± 0.1729  0.0158 ± 0.0513  0.0191 ± 0.0548  0.0011 ± 0.0064  0.0011 ± 0.0051  0.3893 ± 0.3905  2.8062 ± 1.3396  0.0076 ± 0.0358  0.0014 ± 0.0057
+# X9   0.0156 ± 0.0587  0.0284 ± 0.1082  0.0990 ± 0.1743  0.0498 ± 0.0917  0.0021 ± 0.0167  0.0014 ± 0.0124  0.0063 ± 0.0255  0.0076 ± 0.0358  2.4634 ± 1.1359  0.3761 ± 0.3758
+# X10  0.0016 ± 0.0087  0.0025 ± 0.0134  0.0062 ± 0.0138  0.0040 ± 0.0089  0.0003 ± 0.0015  0.0002 ± 0.0011  0.0014 ± 0.0053  0.0014 ± 0.0057  0.3761 ± 0.3758  1.2022 ± 0.4235
