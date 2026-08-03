@@ -6,14 +6,14 @@
 
 ---
 
-## Current Progress (2026-07-31)
+## Current Progress (2026-08-03)
 
 ### Completed
 
 - 重新設計attention matrix套入GLM的地方
 - 在scenarioB中，設計OLS會overfitting的情況
-- 與Ridge共同比較
 - 觀察Adaptive Regularixation Matrix並得到分布
+- 增加simulation進度條
 
 ### Current Findings
 
