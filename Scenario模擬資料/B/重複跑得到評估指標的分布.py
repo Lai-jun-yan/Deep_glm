@@ -150,6 +150,7 @@ def train_attention_model(X, y, epochs=1000, lr=0.001):
 
 from sklearn.metrics import mean_squared_error
 from sklearn.metrics import r2_score
+from tqdm import tqdm
 
 n_repeat = 100
 
@@ -161,7 +162,7 @@ attention_results = []
 adaptive_results = []
 
 
-for seed in range(n_repeat):
+for seed in tqdm(range(n_repeat), desc="Simulation"):
 
     torch.manual_seed(seed)
     np.random.seed(seed)
