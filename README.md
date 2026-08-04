@@ -6,14 +6,14 @@
 
 ---
 
-## Current Progress (2026-08-03)
+## Current Progress (2026-08-04)
 
 ### Completed
 
-- 重新設計attention matrix套入GLM的地方
 - 在scenarioB中，設計OLS會overfitting的情況
 - 觀察Adaptive Regularixation Matrix並得到分布
 - 增加simulation進度條
+- 用老師的程式碼跑老師的想法
 
 ### Current Findings
 
@@ -33,6 +33,3 @@
 - [ ] 與老師討論
 - [x] 探討是否要減少模型學習的自由度
 - [x] 試試看原始資料不做標準化
-
----
-當研究生好累🥲
