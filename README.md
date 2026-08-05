@@ -6,14 +6,14 @@
 
 ---
 
-## Current Progress (2026-08-04)
+## Current Progress (2026-08-05)
 
 ### Completed
 
 - 在scenarioB中，設計OLS會overfitting的情況
 - 觀察Adaptive Regularixation Matrix並得到分布
 - 增加simulation進度條
-- 用老師的程式碼跑老師的想法
+- 將老師測試的程式碼上傳
 
 ### Current Findings
 
@@ -30,6 +30,6 @@
 - [x] 拓展attention到整筆資料
 - [x] 測試估計β的穩定性
 - [x] 測試Ridge的效果
-- [ ] 與老師討論
+- [ ] 將老師的測試結果重現
 - [x] 探討是否要減少模型學習的自由度
 - [x] 試試看原始資料不做標準化
