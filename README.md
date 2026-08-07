@@ -6,7 +6,7 @@
 
 ---
 
-## Current Progress (2026-08-06)
+## Current Progress (2026-08-07)
 
 ### Completed
 
@@ -20,10 +20,11 @@
 - DeepGLM與Ridge的表現非常相似，無明顯差別
 - Adaptive Regularixation Matrix在解釋上能與scenarioB對上
 - 在scenarioC中，OLS、Ridge以及DeepGLM三者表現指標無明顯差別
+- 單次訓練的v3以及v4小幅改善DeepGLM，贏過OLS、Ridge
 
 ---
 
 ## Next Steps
 
-- [x] 將老師的測試結果重現
+- [ ] 驗證整筆資料跑attention_v3(v4).ipynb
 - [ ] 與老師討論後續方案
