@@ -6,7 +6,7 @@
 
 ---
 
-## Current Progress (2026-08-07)
+## Current Progress (2026-08-10)
 
 ### Completed
 
@@ -16,15 +16,13 @@
 ### Current Findings
 
 - 在scenarioB的情況下，DeepGLM表現有提升，可是幅度不大
-- 在資料樣本數小且存在變數高度共線性的情況下，Deep GLM相較OLS的beta bias大幅下降
-- DeepGLM與Ridge的表現非常相似，無明顯差別
 - Adaptive Regularixation Matrix在解釋上能與scenarioB對上
-- 在scenarioC中，OLS、Ridge以及DeepGLM三者表現指標無明顯差別
-- 單次訓練的v3以及v4小幅改善DeepGLM，贏過OLS、Ridge
+- 在scenarioC中，DeepGLM相較OLS和Ridge，表現指標(係數偏差、MSE、R^2)皆為最佳
 
 ---
 
 ## Next Steps
 
-- [ ] 驗證整筆資料跑attention_v3(v4).ipynb
+- [ ] 使用scenarioC的資料跑其他機器學習模型
+- [ ] 嘗試其他的資料結構
 - [ ] 與老師討論後續方案
