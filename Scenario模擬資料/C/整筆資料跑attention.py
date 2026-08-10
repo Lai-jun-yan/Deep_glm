@@ -206,10 +206,10 @@ for epoch in range(epochs):
 
 
     # beta
-    beta = torch.linalg.solve(
-        X.T @ X + A + I*torch.trace(A),
-        X.T @ y
-    )
+    if torch.linalg.det(A)>0:
+        beta = torch.linalg.solve(X.T @ X + I + A/torch.trace(A),X.T @ y)
+    else:
+        beta = torch.linalg.solve(X.T @ X + I - A/torch.trace(A),X.T @ y)
 
     # V = wv @ E
 
@@ -316,17 +316,20 @@ with torch.no_grad():
     # 矩陣乘上Y的變異數
     var_y = torch.var(y)
 
-    A_var_y = A * var_y
+    # A_var_y = A * var_y
 
 
     # beta
-    beta1 = torch.linalg.solve(
-        X.T @ X + A + I*torch.trace(A),
-        X.T @ y
-    )
+    if torch.linalg.det(A)>0:
+        beta1 = torch.linalg.solve(X.T @ X + I + A/torch.trace(A),X.T @ y)
+    else: 
+        beta1 = torch.linalg.solve(X.T @ X + I - A/torch.trace(A),X.T @ y)
 
     # adaptive
-    adaptive = A + I*torch.trace(A)
+    if torch.linalg.det(A)>0:
+        adaptive = I + A/torch.trace(A)
+    else:
+        adaptive = I - A/torch.trace(A)
 
 # print("訓練完之後的beta:")
 # print(beta1)
