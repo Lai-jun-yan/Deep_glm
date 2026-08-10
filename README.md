@@ -18,6 +18,7 @@
 - 在scenarioB的情況下，DeepGLM表現有提升，可是幅度不大
 - Adaptive Regularixation Matrix在解釋上能與scenarioB對上
 - 在scenarioC中，DeepGLM相較OLS和Ridge，表現指標(係數偏差、MSE、R^2)皆為最佳
+- scores的分母並非dk開根號，而是dk，這樣才能讓訓練穩定
 
 ---
 
