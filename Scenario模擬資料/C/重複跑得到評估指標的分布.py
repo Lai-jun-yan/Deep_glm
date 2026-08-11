@@ -56,9 +56,9 @@ def train_attention_model(X, y, epochs=1000, lr=0.001):
 
     X_Y_features = X_Y_train.t()
 
-    dk = 32
+    # dk = 32
 
-    d_k = 32
+    d_k = 32**2
     W_Q = nn.Linear(
         X_Y_features.shape[1],
         d_k,
@@ -104,7 +104,7 @@ def train_attention_model(X, y, epochs=1000, lr=0.001):
             K.transpose(-2,-1)
         ) 
 
-        scores = scores / np.sqrt(dk)
+        # scores = scores / np.sqrt(dk)
 
         attention_matrix = F.softmax(
             scores / (d_k ** 0.5),
@@ -152,7 +152,7 @@ def train_attention_model(X, y, epochs=1000, lr=0.001):
             K.transpose(-2,-1)
         ) 
 
-        scores = scores / np.sqrt(dk)
+        # scores = scores / np.sqrt(dk)
 
         attention_matrix = F.softmax(
             scores / (d_k ** 0.5),
