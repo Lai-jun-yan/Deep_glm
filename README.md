@@ -6,19 +6,19 @@
 
 ---
 
-## Current Progress (2026-08-10)
+## Current Progress (2026-08-11)
 
 ### Completed
 
 - 在scenarioB中，設計OLS會overfitting的情況
 - 在scenarioC中，測試老師的想法
+- 使用colab跑模擬，並將結果保存在google drive
 
 ### Current Findings
 
 - 在scenarioB的情況下，DeepGLM表現有提升，可是幅度不大
 - Adaptive Regularixation Matrix在解釋上能與scenarioB對上
 - 在scenarioC中，DeepGLM相較OLS和Ridge，表現指標(係數偏差、MSE、R^2)皆為最佳
-- scores的分母並非dk開根號，而是dk，這樣才能讓訓練穩定
 
 ---
 
