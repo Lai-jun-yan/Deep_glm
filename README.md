@@ -6,13 +6,13 @@
 
 ---
 
-## Current Progress (2026-08-11)
+## Current Progress (2026-08-12)
 
 ### Completed
 
 - 在scenarioB中，設計OLS會overfitting的情況
 - 在scenarioC中，測試老師的想法
-- 使用colab跑模擬，並將結果保存在google drive
+- 使用colab跑模擬，設定checkpoint並將結果保存在google drive
 
 ### Current Findings
 
