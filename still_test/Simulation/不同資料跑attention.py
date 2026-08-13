@@ -1,0 +1,378 @@
+import numpy as np
+import pandas as pd
+
+data_seed = 456 # 可以用同一個邏輯獨立產生不同分布
+
+def generate_data(seed):
+
+    num_subjects = 1000
+    num_features = 10
+
+    rng = np.random.default_rng(seed)
+
+    X_raw = rng.standard_normal(
+        (num_subjects, num_features)
+    )
+
+    ones_column = np.ones(
+        (num_subjects, 1)
+    )
+
+    X = np.concatenate(
+        (ones_column, X_raw),
+        axis=1
+    )
+
+    # 第一個是 intercept
+    beta_true = np.array([
+        1.0,   # intercept
+        2.0,   # X1 effect
+        -1.5,  # X2 effect
+        0.5,   # X3 effect
+        0.0,   # X4 no effect
+        3.0,   # X5 effect
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+    ]).reshape(-1, 1)
+
+
+    noise = rng.standard_normal(
+        (num_subjects, 1)
+    )
+
+    Y = (
+        X @ beta_true
+        + noise
+        + X[:, 2:3] * X[:, 3:4] # X2 * X3 interaction
+        + X[:, 4:5] * X[:, 4:5] # X4^2 quadratic term
+    )
+
+    columns = ["Intercept"] + [f"X{i}" for i in range(1, num_features+1)]
+
+    data = pd.DataFrame(X, columns=columns)
+
+    data["Y"] = Y.flatten()
+
+    return data, beta_true
+
+# 先讀進模擬資料
+
+data, beta_true = generate_data(seed = data_seed)
+
+cols = data.columns[:-1].to_list() 
+
+whole = data.copy()
+
+data = whole.iloc[0:700,:]
+
+validation = whole.iloc[700:1000,:]
+
+import pandas as pd
+import numpy as np
+
+# ### 先用傳統統計模型驗證
+X = data[cols]
+
+XTX = X.T @ X
+
+# 用套件驗證
+import statsmodels.api as sm
+
+X = data[cols]
+
+model = sm.OLS(
+    data["Y"],
+    X          # 不加 constant
+)
+
+result = model.fit()
+
+from sklearn.linear_model import Ridge
+from sklearn.metrics import mean_squared_error, r2_score
+
+
+# ======================
+# Split X and Y
+# ======================
+
+X_train = data[cols].values
+y_train = data["Y"].values
+
+# X_test = validation[cols].values
+# y_test = validation["Y"].values
+
+
+# ======================
+# Ridge model
+# ======================
+
+ridge = Ridge(alpha=1.0, fit_intercept=False)
+
+ridge.fit(
+    X_train,
+    y_train,
+)
+
+import torch
+
+X = torch.tensor(
+    data[cols].values,
+    dtype=torch.float32
+)
+
+y = torch.tensor(
+    data["Y"].values,
+    dtype=torch.float32
+)
+
+N = X.shape[0]
+P = X.shape[1]
+
+import torch.nn as nn
+
+y = y.reshape(-1, 1)
+
+X_Y_train = torch.cat(
+    (X, y),
+    dim=1
+)
+
+X_Y_features = X_Y_train.t()
+
+d_k = 49
+
+# d_k = 32**2
+W_Q = nn.Linear(
+    X_Y_features.shape[1],
+    d_k,
+    bias=False
+)
+
+W_K = nn.Linear(
+    X_Y_features.shape[1],
+    d_k,
+    bias=False
+)
+
+optimizer = torch.optim.Adam(
+
+    list(W_Q.parameters()) +
+    list(W_K.parameters()), 
+    
+    lr=0.001
+
+)
+
+import numpy as np
+import torch.nn.functional as F
+
+lam = 1
+
+# Deep GLM 
+p = X.shape[1]
+
+I = torch.eye(
+    p,
+    dtype=X.dtype,
+    device=X.device
+)
+
+loss_history = []
+
+initial_attn = None
+
+epochs = 1000
+
+for epoch in range(epochs):
+
+    Q = W_Q(X_Y_features)
+    
+    K = W_K(X_Y_features)
+
+    scores = torch.matmul(
+        Q,
+        K.transpose(-2,-1)
+    ) 
+
+    # scores = scores / np.sqrt(dk)
+
+    attention_matrix = F.softmax(
+        scores / (d_k ), # d_k ** 0.5，不做開根號
+        dim=-1
+    )
+
+    # 把Y再從矩陣中拿掉
+    A = attention_matrix[:-1,:-1]
+
+    # 矩陣乘上Y的變異數
+    var_y = torch.var(y)
+
+    A_var_y = A * var_y
+
+
+    # beta
+
+    beta = torch.linalg.solve(X.T @ X + I + A.T@A/torch.trace(A),X.T @ y)
+
+    y_hat = X @ beta
+
+    loss = F.mse_loss(
+        y_hat,
+        y
+    )
+
+
+    if epoch == 0:
+        initial_attn = attention_matrix.detach().clone()
+
+
+    loss_history.append(
+        loss.item()
+    )
+
+    optimizer.zero_grad()
+
+    loss.backward()
+
+    optimizer.step()
+
+# =====================
+# 訓練完成後重新 forward
+# 取得最後 attention
+# =====================
+
+with torch.no_grad():
+
+    Q = W_Q(X_Y_features)
+    
+    K = W_K(X_Y_features)
+
+    scores = torch.matmul(
+        Q,
+        K.transpose(-2,-1)
+    ) 
+
+    # scores = scores / np.sqrt(dk)
+
+    attention_matrix = F.softmax(
+        scores / (d_k ), # d_k ** 0.5，不做開根號
+        dim=-1
+    )
+
+    # 把Y再從矩陣中拿掉
+    A = attention_matrix[:-1,:-1]
+
+    final_attn = A.clone()
+
+    # 矩陣乘上Y的變異數
+    var_y = torch.var(y)
+
+    # A_var_y = A * var_y
+
+
+    # beta
+
+    beta1 = torch.linalg.solve(X.T @ X + I + A.T@A/torch.trace(A),X.T @ y)
+
+    # adaptive
+
+    adaptive = I + A.T@A/torch.trace(A)
+
+
+attn_matrix = final_attn.detach().flatten()
+
+### 做驗證
+
+beta_ols = result.params.values
+beta_attn = beta1.detach().numpy()
+beta_attn = beta_attn.flatten()
+beta_ridge = ridge.coef_
+
+X_val = validation[cols].values
+y_val = validation["Y"].values
+
+y_pred_ols = X_val @ beta_ols
+
+y_pred_attn = X_val @ beta_attn
+
+y_pred_ridge = X_val @ beta_ridge
+
+from sklearn.metrics import mean_squared_error
+
+mse_ols = mean_squared_error(
+    y_val,
+    y_pred_ols
+)
+
+mse_attn = mean_squared_error(
+    y_val,
+    y_pred_attn
+)
+
+mse_ridge = mean_squared_error(
+    y_val,
+    y_pred_ridge
+)
+
+rmse_ols = np.sqrt(mse_ols)
+rmse_attn = np.sqrt(mse_attn)
+rmse_ridge = np.sqrt(mse_ridge)
+
+from sklearn.metrics import r2_score
+
+ols_r2 = r2_score(y_val, y_pred_ols)
+attn_r2 = r2_score(y_val, y_pred_attn)
+ridge_r2 = r2_score(y_val, y_pred_ridge)
+
+# 模擬資料生成時的實際係數
+beta_true = beta_true.flatten()
+
+ols_bias = abs(beta_ols - beta_true)
+attn_bias = abs(beta_attn - beta_true)
+ridge_bias = abs(beta_ridge - beta_true)
+
+beta_table = pd.DataFrame({
+    "Variable": cols,
+    "OLS_beta": beta_ols,
+    "Ridge_beta" : beta_ridge,
+    "Attention_beta": beta_attn,
+    "Simulation_beta": beta_true
+})
+
+print("\n---------------------------------------------")
+print("三種方法估計之 Beta 比較:")
+print("-"*45)
+print(beta_table.round(6).to_string(index=False))
+print(f"OLS的係數偏差:{ols_bias.sum():.6f}")
+print(f"Ridge的係數偏差:{ridge_bias.sum():.6f}")
+print(f"DeepGLM的係數偏差:{attn_bias.sum():.6f}")
+print("-"*45)
+
+print("\n---------------------------------------------")
+print("透過驗證集比較三者的表現:")
+print("-"*52)
+print(f"{'Model':<12}{'MSE':>12}{'RMSE':>12}{'R²':>12}")
+print("-"*52)
+print(f"{'OLS':<12}{mse_ols:>12.6f}{rmse_ols:>12.6f}{ols_r2:>12.6f}")
+print(f"{'Ridge':<12}{mse_ridge:>12.6f}{rmse_ridge:>12.6f}{ridge_r2:>12.6f}")
+print(f"{'Attention':<12}{mse_attn:>12.6f}{rmse_attn:>12.6f}{attn_r2:>12.6f}")
+print("-"*52)
+print("")
+
+print("-"*148)
+print("XTX vs Attention matrix:")
+print("XTX")
+print(XTX)
+print("")
+
+# attn_table = pd.DataFrame(attn_matrix,index = cols, columns = cols)
+# adaptive = final_attn @ final_attn.T
+Adaptive = adaptive.detach().numpy()
+Adaptive = pd.DataFrame(Adaptive,index = cols, columns = cols)
+
+print("Attention adaptive matrix")
+print(Adaptive)
+print("-"*148)
