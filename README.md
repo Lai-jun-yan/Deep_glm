@@ -6,13 +6,14 @@
 
 ---
 
-## Current Progress (2026-08-12)
+## Current Progress (2026-08-13)
 
 ### Completed
 
 - 在scenarioB中，設計OLS會overfitting的情況
 - 在scenarioC中，測試老師的想法
 - 使用colab跑模擬，設定checkpoint並將結果保存在google drive
+- 在同一個邏輯下，動態調整資料的生成
 
 ### Current Findings
 
@@ -24,6 +25,7 @@
 
 ## Next Steps
 
+- [ ] 確認DeepGLM在不同生成資料的表現穩定性
 - [ ] 使用scenarioC的資料跑其他機器學習模型
 - [ ] 嘗試其他的資料結構
 - [ ] 與老師討論後續方案
