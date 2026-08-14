@@ -686,7 +686,7 @@ sns.heatmap(
 )
 
 axes[0].set_title(
-    "Mean Attention Matrix (1000 Simulations)"
+    f"Mean Attention Matrix ({n_simulations} Simulations)"
 )
 
 axes[0].set_xlabel("Column")
@@ -708,7 +708,7 @@ sns.heatmap(
 )
 
 axes[1].set_title(
-    "Mean Adaptive Matrix (1000 Simulations)"
+    f"Mean Adaptive Matrix ({n_simulations} Simulations)"
 )
 
 axes[1].set_xlabel("Column")
