@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-data_seed = 456 # 可以用同一個邏輯獨立產生不同分布
+data_seed = 123 # 可以用同一個邏輯獨立產生不同分布
 
 def generate_data(seed):
 
@@ -116,6 +116,22 @@ ridge.fit(
     y_train,
 )
 
+# ======================
+# Lasso model
+# ======================
+
+from sklearn.linear_model import Ridge, Lasso
+lasso = Lasso(
+    alpha=1.0,
+    fit_intercept=False,
+    max_iter=10000
+)
+
+lasso.fit(
+    X_train,
+    y_train,
+)
+
 import torch
 
 X = torch.tensor(
@@ -200,22 +216,22 @@ for epoch in range(epochs):
     # scores = scores / np.sqrt(dk)
 
     attention_matrix = F.softmax(
-        scores / (d_k ), # d_k ** 0.5，不做開根號
+        scores / (d_k ** 0.5), 
         dim=-1
     )
 
     # 把Y再從矩陣中拿掉
     A = attention_matrix[:-1,:-1]
 
-    # 矩陣乘上Y的變異數
-    var_y = torch.var(y)
+    # # 矩陣乘上Y的變異數
+    # var_y = torch.var(y)
 
-    A_var_y = A * var_y
+    # A_var_y = A * var_y
 
 
     # beta
 
-    beta = torch.linalg.solve(X.T @ X + I + A.T@A/torch.trace(A),X.T @ y)
+    beta = torch.linalg.solve(X.T @ X + (I + A).T@(I+A),X.T @ y)
 
     y_hat = X @ beta
 
@@ -258,7 +274,7 @@ with torch.no_grad():
     # scores = scores / np.sqrt(dk)
 
     attention_matrix = F.softmax(
-        scores / (d_k ), # d_k ** 0.5，不做開根號
+        scores / (d_k ** 0.5), 
         dim=-1
     )
 
@@ -267,19 +283,19 @@ with torch.no_grad():
 
     final_attn = A.clone()
 
-    # 矩陣乘上Y的變異數
-    var_y = torch.var(y)
+    # # 矩陣乘上Y的變異數
+    # var_y = torch.var(y)
 
-    # A_var_y = A * var_y
+    # # A_var_y = A * var_y
 
 
     # beta
 
-    beta1 = torch.linalg.solve(X.T @ X + I + A.T@A/torch.trace(A),X.T @ y)
+    beta1 = torch.linalg.solve(X.T @ X + (I + A).T@(I+A),X.T @ y)
 
     # adaptive
 
-    adaptive = I + A.T@A/torch.trace(A)
+    adaptive = (I + A).T@(I+A)
 
 
 attn_matrix = final_attn.detach().flatten()
@@ -290,6 +306,7 @@ beta_ols = result.params.values
 beta_attn = beta1.detach().numpy()
 beta_attn = beta_attn.flatten()
 beta_ridge = ridge.coef_
+beta_lasso = lasso.coef_
 
 X_val = validation[cols].values
 y_val = validation["Y"].values
@@ -299,6 +316,8 @@ y_pred_ols = X_val @ beta_ols
 y_pred_attn = X_val @ beta_attn
 
 y_pred_ridge = X_val @ beta_ridge
+
+y_pred_lasso = X_val @ beta_lasso
 
 from sklearn.metrics import mean_squared_error
 
@@ -317,15 +336,22 @@ mse_ridge = mean_squared_error(
     y_pred_ridge
 )
 
+mse_lasso = mean_squared_error(
+    y_val,
+    y_pred_lasso
+)
+
 rmse_ols = np.sqrt(mse_ols)
 rmse_attn = np.sqrt(mse_attn)
 rmse_ridge = np.sqrt(mse_ridge)
+rmse_lasso = np.sqrt(mse_lasso)
 
 from sklearn.metrics import r2_score
 
 ols_r2 = r2_score(y_val, y_pred_ols)
 attn_r2 = r2_score(y_val, y_pred_attn)
 ridge_r2 = r2_score(y_val, y_pred_ridge)
+lasso_r2 = r2_score(y_val, y_pred_lasso)
 
 # 模擬資料生成時的實際係數
 beta_true = beta_true.flatten()
@@ -333,37 +359,41 @@ beta_true = beta_true.flatten()
 ols_bias = abs(beta_ols - beta_true)
 attn_bias = abs(beta_attn - beta_true)
 ridge_bias = abs(beta_ridge - beta_true)
+lasso_bias = abs(beta_lasso - beta_true)
 
 beta_table = pd.DataFrame({
     "Variable": cols,
     "OLS_beta": beta_ols,
     "Ridge_beta" : beta_ridge,
+    "Lasso_beta": beta_lasso,
     "Attention_beta": beta_attn,
     "Simulation_beta": beta_true
 })
 
 print("\n---------------------------------------------")
-print("三種方法估計之 Beta 比較:")
+print("四種方法估計之 Beta 比較:")
 print("-"*45)
 print(beta_table.round(6).to_string(index=False))
 print(f"OLS的係數偏差:{ols_bias.sum():.6f}")
 print(f"Ridge的係數偏差:{ridge_bias.sum():.6f}")
+print(f"Lasso的係數偏差:{lasso_bias.sum():.6f}")
 print(f"DeepGLM的係數偏差:{attn_bias.sum():.6f}")
 print("-"*45)
 
 print("\n---------------------------------------------")
-print("透過驗證集比較三者的表現:")
+print("透過驗證集比較四者的表現:")
 print("-"*52)
 print(f"{'Model':<12}{'MSE':>12}{'RMSE':>12}{'R²':>12}")
 print("-"*52)
 print(f"{'OLS':<12}{mse_ols:>12.6f}{rmse_ols:>12.6f}{ols_r2:>12.6f}")
 print(f"{'Ridge':<12}{mse_ridge:>12.6f}{rmse_ridge:>12.6f}{ridge_r2:>12.6f}")
+print(f"{'Lasso':<12}"f"{mse_lasso:>12.6f}"f"{rmse_lasso:>12.6f}"f"{lasso_r2:>12.6f}")
 print(f"{'Attention':<12}{mse_attn:>12.6f}{rmse_attn:>12.6f}{attn_r2:>12.6f}")
 print("-"*52)
 print("")
 
 print("-"*148)
-print("XTX vs Attention matrix:")
+print("XTX vs Adaptive & Attention matrix:")
 print("XTX")
 print(XTX)
 print("")
@@ -375,4 +405,74 @@ Adaptive = pd.DataFrame(Adaptive,index = cols, columns = cols)
 
 print("Attention adaptive matrix")
 print(Adaptive)
-print("-"*148)
+print("")
+
+# ==========================================
+# Attention matrix
+# ==========================================
+
+Attention = final_attn.detach().numpy()
+
+Attention = pd.DataFrame(
+    Attention,
+    index=cols,
+    columns=cols
+)
+
+print("Attention matrix")
+print(Attention)
+
+# 呈現兩個矩陣的比較圖
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# ==========================================
+# Attention + Adaptive Heatmaps
+# ==========================================
+
+fig, axes = plt.subplots(
+    1,
+    2,
+    figsize=(18, 7)
+)
+
+# --------------------------
+# Attention
+# --------------------------
+
+sns.heatmap(
+    Attention,
+    ax=axes[0],
+    xticklabels=cols,
+    yticklabels=cols,
+    annot=True,
+    fmt=".3f",
+    cmap="viridis"
+)
+
+axes[0].set_title("Attention Matrix")
+axes[0].set_xlabel("Column")
+axes[0].set_ylabel("Row")
+
+
+# --------------------------
+# Adaptive
+# --------------------------
+
+sns.heatmap(
+    Adaptive,
+    ax=axes[1],
+    xticklabels=cols,
+    yticklabels=cols,
+    annot=True,
+    fmt=".3f",
+    cmap="viridis"
+)
+
+axes[1].set_title("Adaptive Matrix")
+axes[1].set_xlabel("Column")
+axes[1].set_ylabel("Row")
+
+
+plt.tight_layout()
+plt.show()

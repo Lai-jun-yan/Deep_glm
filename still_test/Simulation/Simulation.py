@@ -1,46 +1,61 @@
-import pandas as pd
 import numpy as np
+import pandas as pd
 
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
+# ==========================================
+# Simulation settings
+# ==========================================
 
-import statsmodels.api as sm
+n_simulations = 100
 
-from sklearn.linear_model import Ridge
-from sklearn.metrics import mean_squared_error, r2_score
+# ==========================================
+# 儲存結果
+# ==========================================
 
-from tqdm import tqdm
+# 係數
+beta_ols_list = []
+beta_attn_list = []
+beta_ridge_list = []
+beta_lasso_list = []
+beta_true_list = []
 
-import seaborn as sns
-import matplotlib.pyplot as plt
-def generate_data(
-    num_subjects=1000,
-    num_features=10,
-    seed=None
-):
+# 係數偏差
+ols_bias_list = []
+attn_bias_list = []
+ridge_bias_list = []
+lasso_bias_list = []
 
-    # -----------------------------
-    # 固定這一次 simulation 的 seed
-    # -----------------------------
+# MSE
+mse_ols_list = []
+mse_attn_list = []
+mse_ridge_list = []
+mse_lasso_list = []
 
-    if seed is not None:
-        np.random.seed(seed)
+# RMSE
+rmse_ols_list = []
+rmse_attn_list = []
+rmse_ridge_list = []
+rmse_lasso_list = []
 
+# R²
+ols_r2_list = []
+attn_r2_list = []
+ridge_r2_list = []
+lasso_r2_list = []
 
-    # -----------------------------
-    # 1. Generate X
-    # -----------------------------
+# Attention / Adaptive matrix
+attention_list = []
+adaptive_list = []
 
-    X_raw = np.random.randn(
-        num_subjects,
-        num_features
+def generate_data(seed):
+
+    num_subjects = 1000
+    num_features = 10
+
+    rng = np.random.default_rng(seed)
+
+    X_raw = rng.standard_normal(
+        (num_subjects, num_features)
     )
-
-
-    # -----------------------------
-    # 2. Add intercept
-    # -----------------------------
 
     ones_column = np.ones(
         (num_subjects, 1)
@@ -51,18 +66,14 @@ def generate_data(
         axis=1
     )
 
-
-    # -----------------------------
-    # 3. True beta
-    # -----------------------------
-
+    # 第一個是 intercept
     beta_true = np.array([
-        1.0,
-        2.0,
-        -1.5,
-        0.5,
-        0.0,
-        3.0,
+        1.0,   # intercept
+        2.0,   # X1 effect
+        -1.5,  # X2 effect
+        0.5,   # X3 effect
+        0.0,   # X4 no effect
+        3.0,   # X5 effect
         0.0,
         0.0,
         0.0,
@@ -71,93 +82,121 @@ def generate_data(
     ]).reshape(-1, 1)
 
 
-    # -----------------------------
-    # 4. Generate noise
-    # -----------------------------
-
-    noise = (
-        np.random.randn(
-            num_subjects,
-            1
-        ) * 1
+    noise = rng.standard_normal(
+        (num_subjects, 1)
     )
-
-
-    # -----------------------------
-    # 5. Generate Y
-    # -----------------------------
 
     Y = (
         X @ beta_true
         + noise
-        + X[:, 2:3] * X[:, 3:4]
-        + X[:, 4:5] * X[:, 4:5]
+        + X[:, 2:3] * X[:, 3:4] # X2 * X3 interaction
+        + X[:, 4:5] * X[:, 4:5] # X4^2 quadratic term
     )
 
+    columns = ["Intercept"] + [f"X{i}" for i in range(1, num_features+1)]
 
-    # -----------------------------
-    # 6. Convert to DataFrame
-    # -----------------------------
-
-    columns = (
-        ["Intercept"]
-        + [
-            f"X{i}"
-            for i in range(
-                1,
-                num_features + 1
-            )
-        ]
-    )
-
-    data = pd.DataFrame(
-        X,
-        columns=columns
-    )
+    data = pd.DataFrame(X, columns=columns)
 
     data["Y"] = Y.flatten()
 
-
-    # -----------------------------
-    # 7. Return
-    # -----------------------------
-
     return data, beta_true
 
-num_features = 10
+from tqdm import tqdm
 
-cols = (
-    ["Intercept"]
-    + [
-        f"X{i}"
-        for i in range(
-            1,
-            num_features + 1
-        )
-    ]
-)
+for sim in tqdm( range(n_simulations), desc="Simulation"):
 
-import torch
-import torch.nn as nn
-import numpy as np
-import torch.nn.functional as F
+    data_seed = sim + 1 # 可以用同一個邏輯獨立產生不同分布
 
-def train_attention_model(X, y, epochs=1000, lr=0.001):
+    # 先讀進模擬資料
 
-    if isinstance(X, pd.DataFrame): 
-        X = torch.tensor(
-            X.values,
-            dtype=torch.float32
-        )
+    data, beta_true = generate_data(seed = data_seed)
 
-    if isinstance(y, pd.Series):
-        y = torch.tensor(
-            y.values,
-            dtype=torch.float32
-        )
+    cols = data.columns[:-1].to_list() 
+
+    whole = data.copy()
+
+    data = whole.iloc[0:700,:]
+
+    validation = whole.iloc[700:1000,:]
+
+    import pandas as pd
+    import numpy as np
+
+    # ### 先用傳統統計模型驗證
+    X = data[cols]
+
+    XTX = X.T @ X
+
+    # 用套件驗證
+    import statsmodels.api as sm
+
+    X = data[cols]
+
+    model = sm.OLS(
+        data["Y"],
+        X          # 不加 constant
+    )
+
+    result = model.fit()
+
+    from sklearn.linear_model import Ridge
+    from sklearn.metrics import mean_squared_error, r2_score
+
+
+    # ======================
+    # Split X and Y
+    # ======================
+
+    X_train = data[cols].values
+    y_train = data["Y"].values
+
+    # X_test = validation[cols].values
+    # y_test = validation["Y"].values
+
+
+    # ======================
+    # Ridge model
+    # ======================
+
+    ridge = Ridge(alpha=1.0, fit_intercept=False)
+
+    ridge.fit(
+        X_train,
+        y_train,
+    )
+
+    # ======================
+    # Lasso model
+    # ======================
+
+    from sklearn.linear_model import Ridge, Lasso
+    lasso = Lasso(
+        alpha=1.0,
+        fit_intercept=False,
+        max_iter=10000
+    )
+
+    lasso.fit(
+        X_train,
+        y_train,
+    )
+
+    import torch
+
+    X = torch.tensor(
+        data[cols].values,
+        dtype=torch.float32
+    )
+
+    y = torch.tensor(
+        data["Y"].values,
+        dtype=torch.float32
+    )
 
     N = X.shape[0]
     P = X.shape[1]
+
+    import torch.nn as nn
 
     y = y.reshape(-1, 1)
 
@@ -183,15 +222,17 @@ def train_attention_model(X, y, epochs=1000, lr=0.001):
         bias=False
     )
 
-
     optimizer = torch.optim.Adam(
+
         list(W_Q.parameters()) +
         list(W_K.parameters()), 
-
-        lr=lr
+        
+        lr=0.001
 
     )
 
+    import numpy as np
+    import torch.nn.functional as F
 
     lam = 1
 
@@ -204,6 +245,11 @@ def train_attention_model(X, y, epochs=1000, lr=0.001):
         device=X.device
     )
 
+    loss_history = []
+
+    initial_attn = None
+
+    epochs = 1000
 
     for epoch in range(epochs):
 
@@ -219,27 +265,24 @@ def train_attention_model(X, y, epochs=1000, lr=0.001):
         # scores = scores / np.sqrt(dk)
 
         attention_matrix = F.softmax(
-            scores / (d_k ), # d_k ** 0.5，不做開根號
+            scores / (d_k ** 0.5), 
             dim=-1
         )
 
         # 把Y再從矩陣中拿掉
         A = attention_matrix[:-1,:-1]
 
-        # 矩陣乘上Y的變異數
-        var_y = torch.var(y)
+        # # 矩陣乘上Y的變異數
+        # var_y = torch.var(y)
 
-        A_var_y = A * var_y
+        # A_var_y = A * var_y
 
 
         # beta
-        
-        beta = torch.linalg.solve(X.T @ X + I + A.T@A/torch.trace(A),X.T @ y)
-        
 
+        beta = torch.linalg.solve(X.T @ X + (I + A).T@(I+A),X.T @ y)
 
-        y_hat = X@beta
-
+        y_hat = X @ beta
 
         loss = F.mse_loss(
             y_hat,
@@ -247,9 +290,24 @@ def train_attention_model(X, y, epochs=1000, lr=0.001):
         )
 
 
+        if epoch == 0:
+            initial_attn = attention_matrix.detach().clone()
+
+
+        loss_history.append(
+            loss.item()
+        )
+
         optimizer.zero_grad()
+
         loss.backward()
+
         optimizer.step()
+
+    # =====================
+    # 訓練完成後重新 forward
+    # 取得最後 attention
+    # =====================
 
     with torch.no_grad():
 
@@ -265,7 +323,7 @@ def train_attention_model(X, y, epochs=1000, lr=0.001):
         # scores = scores / np.sqrt(dk)
 
         attention_matrix = F.softmax(
-            scores / (d_k ), # d_k ** 0.5，不做開根號
+            scores / (d_k ** 0.5), 
             dim=-1
         )
 
@@ -274,212 +332,52 @@ def train_attention_model(X, y, epochs=1000, lr=0.001):
 
         final_attn = A.clone()
 
-        # 矩陣乘上Y的變異數
-        var_y = torch.var(y)
+        # # 矩陣乘上Y的變異數
+        # var_y = torch.var(y)
 
-        A_var_y = A * var_y
+        # # A_var_y = A * var_y
 
 
         # beta
 
-        final_beta = torch.linalg.solve(X.T @ X + I + A.T@A/torch.trace(A),X.T @ y)
+        beta1 = torch.linalg.solve(X.T @ X + (I + A).T@(I+A),X.T @ y)
 
         # adaptive
 
-        adaptive_matrix = I + A.T@A/torch.trace(A)
+        adaptive = (I + A).T@(I+A)
 
 
-    return (
-        final_beta.detach(),
-        final_attn.detach(),
-        adaptive_matrix.detach()
-    )
+    attn_matrix = final_attn.detach().flatten()
 
-from sklearn.metrics import mean_squared_error
-from sklearn.metrics import r2_score
-from tqdm import tqdm
+    ### 做驗證
 
-n_repeat = 100
-
-# ==============================
-# Beta
-# ==============================
-
-beta_deepglm_results = []
-beta_ols_results = []
-beta_ridge_results = []
-
-
-# ==============================
-# Prediction metrics
-# ==============================
-
-mse_deepglm_results = []
-mse_ols_results = []
-mse_ridge_results = []
-
-rmse_deepglm_results = []
-rmse_ols_results = []
-rmse_ridge_results = []
-
-r2_deepglm_results = []
-r2_ols_results = []
-r2_ridge_results = []
-
-
-# ==============================
-# DeepGLM internal results
-# ==============================
-
-attention_results = []
-adaptive_results = []
-
-for seed in tqdm(
-    range(n_repeat),
-    desc="Simulation"
-):
-
-    # =================================
-    # 1. Generate NEW dataset
-    # =================================
-
-    data, beta_true = generate_data(
-        num_subjects=1000,
-        num_features=10,
-        seed=seed
-    )
-
-
-    # =================================
-    # 2. Split train / validation
-    # =================================
-
-    train_data = data.iloc[
-        0:700,
-        :
-    ].copy()
-
-    validation = data.iloc[
-        700:1000,
-        :
-    ].copy()
-
-
-    # =================================
-    # 3. X / Y
-    # =================================
-
-    X = train_data[cols]
-
-    y = train_data["Y"]
-
-
-    # =================================
-    # 4. Torch random seed
-    # =================================
-
-    torch.manual_seed(seed)
-
-
-    beta_deepglm, attn_matrix, adaptive_matrix = (
-        train_attention_model(
-            X,
-            y
-        )
-    )
-
-
-    beta_deepglm_results.append(
-        beta_deepglm.numpy().flatten()
-    )
-
-    attention_results.append(
-        attn_matrix.numpy()
-    )
-
-    adaptive_results.append(
-        adaptive_matrix.numpy()
-    )
-
-    # =================================
-    # 5. OLS
-    # =================================
-
-    model_ols = sm.OLS(
-        y,
-        X
-    )
-
-    result_ols = model_ols.fit()
-
-    beta_ols = result_ols.params.values
-
-
-    # 儲存 beta
-
-    beta_ols_results.append(
-        beta_ols
-    )
-
-    # =================================
-    # 6. Ridge
-    # =================================
-
-    ridge = Ridge(
-        alpha=1.0,
-        fit_intercept=False
-    )
-
-    ridge.fit(
-        X.values,
-        y.values
-    )
-
+    beta_ols = result.params.values
+    beta_attn = beta1.detach().numpy()
+    beta_attn = beta_attn.flatten()
     beta_ridge = ridge.coef_
+    beta_lasso = lasso.coef_
 
-
-    # 儲存 beta
-
-    beta_ridge_results.append(
-        beta_ridge
-    )
-
-    # validation
     X_val = validation[cols].values
     y_val = validation["Y"].values
 
-    y_pred_deepglm = (
-        torch.tensor(
-            X_val,
-            dtype=torch.float32
-        )
-        @ beta_deepglm
-    ).detach().numpy().flatten()
+    y_pred_ols = X_val @ beta_ols
 
-    y_pred_ols = (
-        X_val @ beta_ols
-    )
+    y_pred_attn = X_val @ beta_attn
 
-    y_pred_ridge = (
-        X_val @ beta_ridge
-    )
+    y_pred_ridge = X_val @ beta_ridge
 
-    mse_deepglm = mean_squared_error(
-        y_val,
-        y_pred_deepglm
-    )
+    y_pred_lasso = X_val @ beta_lasso
 
-    mse_deepglm_results.append(
-        mse_deepglm
-    )
+    from sklearn.metrics import mean_squared_error
 
     mse_ols = mean_squared_error(
         y_val,
         y_pred_ols
     )
 
-    mse_ols_results.append(
-        mse_ols
+    mse_attn = mean_squared_error(
+        y_val,
+        y_pred_attn
     )
 
     mse_ridge = mean_squared_error(
@@ -487,314 +385,334 @@ for seed in tqdm(
         y_pred_ridge
     )
 
-    mse_ridge_results.append(
-        mse_ridge
-    )
-
-    rmse_deepglm = np.sqrt(
-        mse_deepglm
-    )
-
-    rmse_deepglm_results.append(
-        rmse_deepglm
-    )
-
-    rmse_ols = np.sqrt(
-        mse_ols
-    )
-
-    rmse_ols_results.append(
-        rmse_ols
-    )
-
-    rmse_ridge = np.sqrt(
-        mse_ridge
-    )
-
-    rmse_ridge_results.append(
-        rmse_ridge
-    )
-
-    r2_deepglm = r2_score(
+    mse_lasso = mean_squared_error(
         y_val,
-        y_pred_deepglm
+        y_pred_lasso
     )
 
-    r2_deepglm_results.append(
-        r2_deepglm
+    rmse_ols = np.sqrt(mse_ols)
+    rmse_attn = np.sqrt(mse_attn)
+    rmse_ridge = np.sqrt(mse_ridge)
+    rmse_lasso = np.sqrt(mse_lasso)
+
+    from sklearn.metrics import r2_score
+
+    ols_r2 = r2_score(y_val, y_pred_ols)
+    attn_r2 = r2_score(y_val, y_pred_attn)
+    ridge_r2 = r2_score(y_val, y_pred_ridge)
+    lasso_r2 = r2_score(y_val, y_pred_lasso)
+
+    # 模擬資料生成時的實際係數
+    beta_true = beta_true.flatten()
+
+    ols_bias = abs(beta_ols - beta_true)
+    attn_bias = abs(beta_attn - beta_true)
+    ridge_bias = abs(beta_ridge - beta_true)
+    lasso_bias = abs(beta_lasso - beta_true)
+
+    Adaptive = adaptive.detach().numpy()
+
+    Attention = final_attn.detach().numpy()
+
+    # ======================================
+    # 把這一次結果存進 list
+    # ======================================
+
+    # coefficients
+
+    beta_ols_list.append(
+        beta_ols
     )
 
-    r2_ols = r2_score(
-        y_val,
-        y_pred_ols
+    beta_attn_list.append(
+        beta_attn
     )
 
-    r2_ols_results.append(
-        r2_ols
+    beta_ridge_list.append(
+        beta_ridge
     )
 
-    r2_ridge = r2_score(
-        y_val,
-        y_pred_ridge
+    beta_lasso_list.append(
+        beta_lasso
     )
 
-    r2_ridge_results.append(
-        r2_ridge
+    beta_true_list.append(
+        beta_true
     )
 
-# ============================================================
-# Simulation results → numpy array
-# ============================================================
+    # bias
 
-beta_deepglm_results = np.array(beta_deepglm_results)
-beta_ols_results = np.array(beta_ols_results)
-beta_ridge_results = np.array(beta_ridge_results)
+    ols_bias_list.append(
+        ols_bias
+    )
 
-attention_results = np.array(attention_results)
-adaptive_results = np.array(adaptive_results)
+    attn_bias_list.append(
+        attn_bias
+    )
 
-# ============================================================
-# Beta mean / SD
-# ============================================================
+    ridge_bias_list.append(
+        ridge_bias
+    )
 
-beta_deepglm_mean = beta_deepglm_results.mean(axis=0)
-beta_deepglm_sd = beta_deepglm_results.std(axis=0)
+    lasso_bias_list.append(
+        lasso_bias
+    )
 
-beta_ols_mean = beta_ols_results.mean(axis=0)
-beta_ols_sd = beta_ols_results.std(axis=0)
+    # MSE
 
-beta_ridge_mean = beta_ridge_results.mean(axis=0)
-beta_ridge_sd = beta_ridge_results.std(axis=0)
+    mse_ols_list.append(mse_ols)
+    mse_attn_list.append(mse_attn)
+    mse_ridge_list.append(mse_ridge)
+    mse_lasso_list.append(mse_lasso)
 
-beta_true = beta_true.flatten()
 
-# ============================================================
-# Absolute Bias
-# ============================================================
+    # RMSE
 
-deepglm_abs_bias = np.abs(
-    beta_deepglm_results - beta_true
+    rmse_ols_list.append(rmse_ols)
+    rmse_attn_list.append(rmse_attn)
+    rmse_ridge_list.append(rmse_ridge)
+    rmse_lasso_list.append(rmse_lasso)
+
+
+    # R²
+
+    ols_r2_list.append(ols_r2)
+    attn_r2_list.append(attn_r2)
+    ridge_r2_list.append(ridge_r2)
+    lasso_r2_list.append(lasso_r2)
+
+    # Matrix
+
+    attention_list.append(
+        Attention
+    )
+
+    adaptive_list.append(
+        Adaptive
+    )
+
+beta_ols_mean = np.mean(
+    beta_ols_list,
+    axis=0
 )
 
-ols_abs_bias = np.abs(
-    beta_ols_results - beta_true
+beta_attn_mean = np.mean(
+    beta_attn_list,
+    axis=0
 )
 
-ridge_abs_bias = np.abs(
-    beta_ridge_results - beta_true
+beta_ridge_mean = np.mean(
+    beta_ridge_list,
+    axis=0
 )
 
-# ============================================================
-# Absolute Bias
-# ============================================================
-
-deepglm_abs_bias = np.abs(
-    beta_deepglm_results - beta_true
+beta_lasso_mean = np.mean(
+    beta_lasso_list,
+    axis=0
 )
 
-ols_abs_bias = np.abs(
-    beta_ols_results - beta_true
+beta_true_mean = np.mean(
+    beta_true_list,
+    axis=0
 )
 
-ridge_abs_bias = np.abs(
-    beta_ridge_results - beta_true
+ols_bias_mean = np.mean(
+    ols_bias_list,
+    axis=0
 )
 
-deepglm_bias_mean = deepglm_abs_bias.mean(axis=0)
-
-ols_bias_mean = ols_abs_bias.mean(axis=0)
-
-ridge_bias_mean = ridge_abs_bias.mean(axis=0)
-
-deepglm_total_bias = deepglm_abs_bias.sum(axis=1)
-
-ols_total_bias = ols_abs_bias.sum(axis=1)
-
-ridge_total_bias = ridge_abs_bias.sum(axis=1)
-
-print(
-    f"DeepGLM Mean Total Absolute Bias: "
-    f"{deepglm_total_bias.mean():.6f}"
+attn_bias_mean = np.mean(
+    attn_bias_list,
+    axis=0
 )
 
-print(
-    f"OLS Mean Total Absolute Bias: "
-    f"{ols_total_bias.mean():.6f}"
+ridge_bias_mean = np.mean(
+    ridge_bias_list,
+    axis=0
 )
 
-print(
-    f"Ridge Mean Total Absolute Bias: "
-    f"{ridge_total_bias.mean():.6f}"
+lasso_bias_mean = np.mean(
+    lasso_bias_list,
+    axis=0
 )
 
-mse_deepglm_results = np.array(
-    mse_deepglm_results
-)
+mse_ols_mean = np.mean(mse_ols_list)
+mse_attn_mean = np.mean(mse_attn_list)
+mse_ridge_mean = np.mean(mse_ridge_list)
+mse_lasso_mean = np.mean(mse_lasso_list)
 
-mse_ols_results = np.array(
-    mse_ols_results
-)
+rmse_ols_mean = np.mean(rmse_ols_list)
+rmse_attn_mean = np.mean(rmse_attn_list)
+rmse_ridge_mean = np.mean(rmse_ridge_list)
+rmse_lasso_mean = np.mean(rmse_lasso_list)
 
-mse_ridge_results = np.array(
-    mse_ridge_results
-)
+ols_r2_mean = np.mean(ols_r2_list)
+attn_r2_mean = np.mean(attn_r2_list)
+ridge_r2_mean = np.mean(ridge_r2_list)
+lasso_r2_mean = np.mean(lasso_r2_list)
 
-rmse_deepglm_results = np.array(
-    rmse_deepglm_results
-)
-
-rmse_ols_results = np.array(
-    rmse_ols_results
-)
-
-rmse_ridge_results = np.array(
-    rmse_ridge_results
-)
-
-r2_deepglm_results = np.array(
-    r2_deepglm_results
-)
-
-r2_ols_results = np.array(
-    r2_ols_results
-)
-
-r2_ridge_results = np.array(
-    r2_ridge_results
-)
-
-print("MSE")
-
-print(
-    f"DeepGLM: "
-    f"{mse_deepglm_results.mean():.6f} "
-    f"± {mse_deepglm_results.std():.6f}"
-)
-
-print(
-    f"OLS: "
-    f"{mse_ols_results.mean():.6f} "
-    f"± {mse_ols_results.std():.6f}"
-)
-
-print(
-    f"Ridge: "
-    f"{mse_ridge_results.mean():.6f} "
-    f"± {mse_ridge_results.std():.6f}"
-)
-
-print("\nRMSE")
-
-print(
-    f"DeepGLM: "
-    f"{rmse_deepglm_results.mean():.6f} "
-    f"± {rmse_deepglm_results.std():.6f}"
-)
-
-print(
-    f"OLS: "
-    f"{rmse_ols_results.mean():.6f} "
-    f"± {rmse_ols_results.std():.6f}"
-)
-
-print(
-    f"Ridge: "
-    f"{rmse_ridge_results.mean():.6f} "
-    f"± {rmse_ridge_results.std():.6f}"
-)
-
-print("\nR2")
-
-print(
-    f"DeepGLM: "
-    f"{r2_deepglm_results.mean():.6f} "
-    f"± {r2_deepglm_results.std():.6f}"
-)
-
-print(
-    f"OLS: "
-    f"{r2_ols_results.mean():.6f} "
-    f"± {r2_ols_results.std():.6f}"
-)
-
-print(
-    f"Ridge: "
-    f"{r2_ridge_results.mean():.6f} "
-    f"± {r2_ridge_results.std():.6f}"
-)
-
-beta_summary = pd.DataFrame({
-
+beta_mean_table = pd.DataFrame({
     "Variable": cols,
-
-    "True_Beta": beta_true,
-
-    "DeepGLM_Mean": beta_deepglm_mean,
-
-    "DeepGLM_SD": beta_deepglm_sd,
-
-    "OLS_Mean": beta_ols_mean,
-
-    "OLS_SD": beta_ols_sd,
-
-    "Ridge_Mean": beta_ridge_mean,
-
-    "Ridge_SD": beta_ridge_sd,
-
-    "DeepGLM_Bias": deepglm_bias_mean,
-
-    "OLS_Bias": ols_bias_mean,
-
-    "Ridge_Bias": ridge_bias_mean
-
+    "OLS_beta": beta_ols_mean,
+    "Ridge_beta": beta_ridge_mean,
+    "Lasso_beta": beta_lasso_mean,
+    "Attention_beta": beta_attn_mean,
+    "Simulation_beta": beta_true_mean
 })
 
-print(beta_summary)
+print("\n---------------------------------------------")
+print(f"{n_simulations} 次 Simulation 的平均係數")
+print("---------------------------------------------")
+print(
+    beta_mean_table.round(6)
+    .to_string(index=False)
+)
 
-metric_summary = pd.DataFrame({
+print(
+    f"OLS平均係數偏差: "
+    f"{ols_bias_mean.sum():.6f}"
+)
 
-    "Metric": [
-        "MSE",
-        "RMSE",
-        "R2"
-    ],
+print(
+    f"Ridge平均係數偏差: "
+    f"{ridge_bias_mean.sum():.6f}"
+)
 
-    "DeepGLM_Mean": [
-        mse_deepglm_results.mean(),
-        rmse_deepglm_results.mean(),
-        r2_deepglm_results.mean()
-    ],
+print(
+    f"Lasso平均係數偏差: "
+    f"{lasso_bias_mean.sum():.6f}"
+)
 
-    "DeepGLM_SD": [
-        mse_deepglm_results.std(),
-        rmse_deepglm_results.std(),
-        r2_deepglm_results.std()
-    ],
+print(
+    f"DeepGLM平均係數偏差: "
+    f"{attn_bias_mean.sum():.6f}"
+)
+print("-"*52)
 
-    "OLS_Mean": [
-        mse_ols_results.mean(),
-        rmse_ols_results.mean(),
-        r2_ols_results.mean()
-    ],
+print("\n----------------------------------------------------")
+print(f"{n_simulations} 次 Simulation 平均表現")
+print("----------------------------------------------------")
 
-    "OLS_SD": [
-        mse_ols_results.std(),
-        rmse_ols_results.std(),
-        r2_ols_results.std()
-    ],
+print(
+    f"{'Model':<12}"
+    f"{'MSE':>12}"
+    f"{'RMSE':>12}"
+    f"{'R²':>12}"
+)
 
-    "Ridge_Mean": [
-        mse_ridge_results.mean(),
-        rmse_ridge_results.mean(),
-        r2_ridge_results.mean()
-    ],
+print("-"*52)
 
-    "Ridge_SD": [
-        mse_ridge_results.std(),
-        rmse_ridge_results.std(),
-        r2_ridge_results.std()
-    ]
+print(
+    f"{'OLS':<12}"
+    f"{mse_ols_mean:>12.6f}"
+    f"{rmse_ols_mean:>12.6f}"
+    f"{ols_r2_mean:>12.6f}"
+)
 
-})
+print(
+    f"{'Ridge':<12}"
+    f"{mse_ridge_mean:>12.6f}"
+    f"{rmse_ridge_mean:>12.6f}"
+    f"{ridge_r2_mean:>12.6f}"
+)
 
-print(metric_summary)
+print(
+    f"{'Lasso':<12}"
+    f"{mse_lasso_mean:>12.6f}"
+    f"{rmse_lasso_mean:>12.6f}"
+    f"{lasso_r2_mean:>12.6f}"
+)
+
+print(
+    f"{'Attention':<12}"
+    f"{mse_attn_mean:>12.6f}"
+    f"{rmse_attn_mean:>12.6f}"
+    f"{attn_r2_mean:>12.6f}"
+)
+
+print("-"*52)
+
+attention_array = np.array(
+    attention_list
+)
+
+adaptive_array = np.array(
+    adaptive_list
+)
+
+attention_mean = np.mean(
+    attention_array,
+    axis=0
+)
+
+adaptive_mean = np.mean(
+    adaptive_array,
+    axis=0
+)
+
+Attention_mean = pd.DataFrame(
+    attention_mean,
+    index=cols,
+    columns=cols
+)
+
+Adaptive_mean = pd.DataFrame(
+    adaptive_mean,
+    index=cols,
+    columns=cols
+)
+
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+fig, axes = plt.subplots(
+    1,
+    2,
+    figsize=(18, 7)
+)
+
+# ==========================================
+# Average Attention
+# ==========================================
+
+sns.heatmap(
+    Attention_mean,
+    ax=axes[0],
+    xticklabels=cols,
+    yticklabels=cols,
+    annot=True,
+    fmt=".3f",
+    cmap="viridis"
+)
+
+axes[0].set_title(
+    "Mean Attention Matrix (1000 Simulations)"
+)
+
+axes[0].set_xlabel("Column")
+axes[0].set_ylabel("Row")
+
+
+# ==========================================
+# Average Adaptive
+# ==========================================
+
+sns.heatmap(
+    Adaptive_mean,
+    ax=axes[1],
+    xticklabels=cols,
+    yticklabels=cols,
+    annot=True,
+    fmt=".3f",
+    cmap="viridis"
+)
+
+axes[1].set_title(
+    "Mean Adaptive Matrix (1000 Simulations)"
+)
+
+axes[1].set_xlabel("Column")
+axes[1].set_ylabel("Row")
+
+plt.tight_layout()
+plt.show()
