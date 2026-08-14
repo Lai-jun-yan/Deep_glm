@@ -6,7 +6,7 @@
 
 ---
 
-## Current Progress (2026-08-13)
+## Current Progress (2026-08-14)
 
 ### Completed
 
@@ -26,6 +26,7 @@
 ## Next Steps
 
 - [ ] 確認DeepGLM在不同生成資料的表現穩定性
+- [ ] 確認Attention simulation 08.14的程式碼
 - [ ] 使用scenarioC的資料跑其他機器學習模型
 - [ ] 嘗試其他的資料結構
 - [ ] 與老師討論後續方案
