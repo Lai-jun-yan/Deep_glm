@@ -280,8 +280,8 @@ for sim in tqdm( range(n_simulations), desc="Simulation"):
 
         # beta
 
-        beta = torch.linalg.solve(X.T @ X + (I + A).T@(I+A),X.T @ y)
-
+        beta = torch.linalg.solve(X.T @ X + (I + A).T@(I+A),X.T @ y) # torch.linalg.solve(X.T @ X + I + A.T@A/torch.trace(A),X.T @ y)
+        
         y_hat = X @ beta
 
         loss = F.mse_loss(
@@ -340,7 +340,7 @@ for sim in tqdm( range(n_simulations), desc="Simulation"):
 
         # beta
 
-        beta1 = torch.linalg.solve(X.T @ X + (I + A).T@(I+A),X.T @ y)
+        beta1 = torch.linalg.solve(X.T @ X + (I + A).T@(I+A),X.T @ y) # torch.linalg.solve(X.T @ X + I + A.T@A/torch.trace(A),X.T @ y)
 
         # adaptive
 
@@ -568,6 +568,7 @@ print(
     .to_string(index=False)
 )
 
+print("")
 print(
     f"OLS平均係數偏差: "
     f"{ols_bias_mean.sum():.6f}"
@@ -631,6 +632,7 @@ print(
 )
 
 print("-"*52)
+print("")
 
 attention_array = np.array(
     attention_list
