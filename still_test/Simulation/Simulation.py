@@ -280,7 +280,7 @@ for sim in tqdm( range(n_simulations), desc="Simulation"):
 
         # beta
 
-        beta = torch.linalg.solve(X.T @ X + (I + A).T@(I+A),X.T @ y) # torch.linalg.solve(X.T @ X + I + A.T@A/torch.trace(A),X.T @ y)
+        beta = torch.linalg.solve(X.T @ X + (I + A.T@A),X.T @ y) # torch.linalg.solve(X.T @ X + I + A.T@A/torch.trace(A),X.T @ y)
         
         y_hat = X @ beta
 
@@ -340,11 +340,11 @@ for sim in tqdm( range(n_simulations), desc="Simulation"):
 
         # beta
 
-        beta1 = torch.linalg.solve(X.T @ X + (I + A).T@(I+A),X.T @ y) # torch.linalg.solve(X.T @ X + I + A.T@A/torch.trace(A),X.T @ y)
+        beta1 = torch.linalg.solve(X.T @ X + (I + A.T@A),X.T @ y) # torch.linalg.solve(X.T @ X + I + A.T@A/torch.trace(A),X.T @ y)
 
         # adaptive
 
-        adaptive = (I + A).T@(I+A)
+        adaptive = I + A.T@A
 
 
     attn_matrix = final_attn.detach().flatten()
