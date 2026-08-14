@@ -20,13 +20,14 @@
 - 在scenarioB的情況下，DeepGLM表現有提升，可是幅度不大
 - Adaptive Regularixation Matrix在解釋上能與scenarioB對上
 - 在scenarioC中，DeepGLM相較OLS和Ridge，表現指標(係數偏差、MSE、R^2)皆為最佳
+- 在simulation中，DeepGLM相較OLS、Ridge和Lasso，表現指標(係數偏差、MSE、R^2)皆為最佳
 
 ---
 
 ## Next Steps
 
-- [ ] 確認DeepGLM在不同生成資料的表現穩定性
-- [ ] 確認Attention simulation 08.14的程式碼
+- [x] 確認DeepGLM在不同生成資料的表現穩定性
+- [x] 確認Attention simulation 08.14的程式碼
 - [ ] 使用scenarioC的資料跑其他機器學習模型
 - [ ] 嘗試其他的資料結構
 - [ ] 與老師討論後續方案
