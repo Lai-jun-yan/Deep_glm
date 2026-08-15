@@ -71,7 +71,9 @@ from sklearn.pipeline import Pipeline
 from sklearn.metrics import mean_squared_error
 
 
-X_alpha = data_for_alpha[[f"X{i}" for i in range(1, 11)]]
+X_alpha = data_for_alpha[
+    ["Intercept"] + [f"X{i}" for i in range(1, 11)]
+]
 Y_alpha = data_for_alpha["Y"]
 
 X_train_alpha = X_alpha.iloc[0:700]
