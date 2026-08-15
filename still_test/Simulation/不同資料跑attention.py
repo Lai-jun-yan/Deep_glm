@@ -58,6 +58,100 @@ def generate_data(seed):
 
     return data, beta_true
 
+# 驗證最好的ridge_alpha
+
+data_for_alpha, beta_true_1 = generate_data(seed = data_seed)
+
+
+
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import Ridge
+from sklearn.pipeline import Pipeline
+from sklearn.metrics import mean_squared_error
+
+
+X_alpha = data_for_alpha[[f"X{i}" for i in range(1, 11)]]
+Y_alpha = data_for_alpha["Y"]
+
+X_train_alpha = X_alpha.iloc[0:700]
+X_test_alpha = X_alpha.iloc[700:1000]
+
+y_train_alpha = Y_alpha.iloc[0:700]
+y_test_alpha = Y_alpha.iloc[700:1000]
+
+import numpy as np
+import matplotlib.pyplot as plt
+
+from sklearn.model_selection import KFold, cross_val_score
+from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import Ridge
+from sklearn.pipeline import Pipeline
+
+
+alphas = np.logspace(-4, 4, 100)
+
+kf = KFold(
+    n_splits=10,
+    shuffle=True,
+    random_state=42
+)
+
+mse_list = []
+
+for alpha in alphas:
+
+    model = Ridge(
+        alpha=alpha,
+        fit_intercept=False
+    )
+
+    scores = cross_val_score(
+        model,
+        X_train_alpha,
+        y_train_alpha,
+        cv=kf,
+        scoring="neg_mean_squared_error"
+    )
+
+    mse = -scores.mean()
+
+    mse_list.append(mse)
+
+# 找到 MSE 最小的 alpha
+best_index = np.argmin(mse_list)
+best_alpha = alphas[best_index]
+
+
+# ======================
+# 找最佳 Lasso alpha
+# ======================
+from sklearn.linear_model import Ridge, Lasso
+lasso_mse_list = []
+
+for alpha in alphas:
+
+    model = Lasso(
+        alpha=alpha,
+        fit_intercept=False,
+        max_iter=10000
+    )
+
+    scores = cross_val_score(
+        model,
+        X_train_alpha,
+        y_train_alpha,
+        cv=kf,
+        scoring="neg_mean_squared_error"
+    )
+
+    mse = -scores.mean()
+
+    lasso_mse_list.append(mse)
+
+best_lasso_index = np.argmin(lasso_mse_list)
+best_lasso_alpha = alphas[best_lasso_index]
+
 # 先讀進模擬資料
 
 data, beta_true = generate_data(seed = data_seed)
@@ -109,7 +203,9 @@ y_train = data["Y"].values
 # Ridge model
 # ======================
 
-ridge = Ridge(alpha=1.0, fit_intercept=False)
+lam = best_alpha
+
+ridge = Ridge(alpha=lam, fit_intercept=False)
 
 ridge.fit(
     X_train,
@@ -122,7 +218,7 @@ ridge.fit(
 
 from sklearn.linear_model import Ridge, Lasso
 lasso = Lasso(
-    alpha=1.0,
+    alpha=best_lasso_alpha,
     fit_intercept=False,
     max_iter=10000
 )
@@ -151,10 +247,12 @@ import torch.nn as nn
 
 y = y.reshape(-1, 1)
 
-X_Y_train = torch.cat(
-    (X, y),
-    dim=1
-)
+# X_Y_train = torch.cat(
+#     (X, y),
+#     dim=1
+# )
+
+X_Y_train = X
 
 X_Y_features = X_Y_train.t()
 
@@ -185,7 +283,6 @@ optimizer = torch.optim.Adam(
 import numpy as np
 import torch.nn.functional as F
 
-lam = 1
 
 # Deep GLM 
 p = X.shape[1]
@@ -220,8 +317,8 @@ for epoch in range(epochs):
         dim=-1
     )
 
-    # 把Y再從矩陣中拿掉
-    A = attention_matrix[:-1,:-1]
+    # X跟X而已，沒有Y
+    A = attention_matrix
 
     # # 矩陣乘上Y的變異數
     # var_y = torch.var(y)
@@ -231,7 +328,7 @@ for epoch in range(epochs):
 
     # beta
 
-    beta = torch.linalg.solve(X.T @ X + (I + A.T@A),X.T @ y)
+    beta = torch.linalg.solve(X.T @ X + lam * (I + A.T@A),X.T @ y)
 
     y_hat = X @ beta
 
@@ -278,8 +375,8 @@ with torch.no_grad():
         dim=-1
     )
 
-    # 把Y再從矩陣中拿掉
-    A = attention_matrix[:-1,:-1]
+    # X跟X而已，沒有Y
+    A = attention_matrix
 
     final_attn = A.clone()
 
@@ -291,11 +388,11 @@ with torch.no_grad():
 
     # beta
 
-    beta1 = torch.linalg.solve(X.T @ X + (I + A.T@A),X.T @ y)
+    beta1 = torch.linalg.solve(X.T @ X + lam * (I + A.T@A),X.T @ y)
 
     # adaptive
 
-    adaptive = I + A.T@A
+    adaptive = lam * (I + A.T@A)
 
 
 attn_matrix = final_attn.detach().flatten()
