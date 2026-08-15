@@ -5,7 +5,7 @@ import pandas as pd
 # Simulation settings
 # ==========================================
 
-n_simulations = 100
+n_simulations = 10
 
 # ==========================================
 # 儲存結果
@@ -45,6 +45,10 @@ lasso_r2_list = []
 # Attention / Adaptive matrix
 attention_list = []
 adaptive_list = []
+
+# Ridge跟Lasso最好的alpha
+ridge_alpha_list = []
+lasso_alpha_list = []
 
 def generate_data(seed):
 
@@ -171,6 +175,8 @@ for sim in tqdm( range(n_simulations), desc="Simulation"):
     best_index = np.argmin(mse_list)
     best_alpha = alphas[best_index]
 
+    ridge_alpha_list.append(best_alpha)
+
 
     # ======================
     # 找最佳 Lasso alpha
@@ -200,6 +206,8 @@ for sim in tqdm( range(n_simulations), desc="Simulation"):
 
     best_lasso_index = np.argmin(lasso_mse_list)
     best_lasso_alpha = alphas[best_lasso_index]
+
+    lasso_alpha_list.append(best_lasso_alpha)
 
 
     # 先讀進模擬資料
@@ -725,6 +733,19 @@ print(
 )
 
 print("-"*52)
+print("")
+
+## alpha selection
+print("Ridge CV 選出的平均 alpha")
+print(np.mean(ridge_alpha_list))
+print("")
+
+print("DeepGLM 使用的平均 lambda")
+print(np.mean(ridge_alpha_list))
+print("")
+
+print("Lasso CV 選出的平均 alpha")
+print(np.mean(lasso_alpha_list))
 print("")
 
 attention_array = np.array(
