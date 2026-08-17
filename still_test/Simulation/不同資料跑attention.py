@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-data_seed = 123 # 可以用同一個邏輯獨立產生不同分布
+data_seed = 456 # 可以用同一個邏輯獨立產生不同分布
 
 def generate_data(seed):
 
@@ -23,19 +23,33 @@ def generate_data(seed):
         axis=1
     )
 
-    # 第一個是 intercept
+    # # 第一個是 intercept
+    # beta_true = np.array([
+    #     1.0,   # intercept
+    #     2.0,   # X1 effect
+    #     -1.5,  # X2 effect
+    #     0.5,   # X3 effect
+    #     0.0,   # X4 no effect
+    #     3.0,   # X5 effect
+    #     10.0,   # X6
+    #     -20.0,  # X7
+    #     30.0,   # X8
+    #     -40.0,  # X9
+    #     50.0, 
+    # ]).reshape(-1, 1)
+
     beta_true = np.array([
-        1.0,   # intercept
-        2.0,   # X1 effect
-        -1.5,  # X2 effect
-        0.5,   # X3 effect
-        0.0,   # X4 no effect
-        3.0,   # X5 effect
+        1.0,
+        2.0,
+        -1.5,
+        0.5,
         0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
+        3.0,
+        0.1,
+        -0.2,
+        0.3,
+        -0.4,
+        0.5,
     ]).reshape(-1, 1)
 
 
@@ -287,6 +301,9 @@ import torch.nn.functional as F
 
 
 # Deep GLM 
+
+lamda_for_deepgln = 3
+
 p = X.shape[1]
 
 I = torch.eye(
@@ -330,7 +347,7 @@ for epoch in range(epochs):
 
     # beta
 
-    beta = torch.linalg.solve(X.T @ X + lam * (I + A.T@A),X.T @ y)
+    beta = torch.linalg.solve(X.T @ X + lamda_for_deepgln * (I + A.T@A),X.T @ y)
 
     y_hat = X @ beta
 
@@ -390,11 +407,11 @@ with torch.no_grad():
 
     # beta
 
-    beta1 = torch.linalg.solve(X.T @ X + lam * (I + A.T@A),X.T @ y)
+    beta1 = torch.linalg.solve(X.T @ X + lamda_for_deepgln * (I + A.T@A),X.T @ y)
 
     # adaptive
 
-    adaptive = lam * (I + A.T@A)
+    adaptive = lamda_for_deepgln * (I + A.T@A)
 
 
 attn_matrix = final_attn.detach().flatten()

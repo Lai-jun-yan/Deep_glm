@@ -78,11 +78,11 @@ def generate_data(seed):
         0.5,   # X3 effect
         0.0,   # X4 no effect
         3.0,   # X5 effect
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
+        0.1,
+        -0.2,
+        0.3,
+        -0.4,
+        0.5,
     ]).reshape(-1, 1)
 
 
@@ -340,6 +340,9 @@ for sim in tqdm( range(n_simulations), desc="Simulation"):
 
 
     # Deep GLM 
+
+    lamda_for_deepgln = 3
+
     p = X.shape[1]
 
     I = torch.eye(
@@ -383,7 +386,7 @@ for sim in tqdm( range(n_simulations), desc="Simulation"):
 
         # beta
 
-        beta = torch.linalg.solve(X.T @ X + lam * (I + A.T@A),X.T @ y) # torch.linalg.solve(X.T @ X + I + A.T@A/torch.trace(A),X.T @ y)
+        beta = torch.linalg.solve(X.T @ X + lamda_for_deepgln * (I + A.T@A),X.T @ y) # torch.linalg.solve(X.T @ X + I + A.T@A/torch.trace(A),X.T @ y)
         
         y_hat = X @ beta
 
@@ -443,11 +446,11 @@ for sim in tqdm( range(n_simulations), desc="Simulation"):
 
         # beta
 
-        beta1 = torch.linalg.solve(X.T @ X + lam * (I + A.T@A),X.T @ y) # torch.linalg.solve(X.T @ X + I + A.T@A/torch.trace(A),X.T @ y)
+        beta1 = torch.linalg.solve(X.T @ X + lamda_for_deepgln * (I + A.T@A),X.T @ y) # torch.linalg.solve(X.T @ X + I + A.T@A/torch.trace(A),X.T @ y)
 
         # adaptive
 
-        adaptive = lam * (I + A.T@A)
+        adaptive = lamda_for_deepgln * (I + A.T@A)
 
 
     attn_matrix = final_attn.detach().flatten()
@@ -742,8 +745,8 @@ print("Ridge CV 選出的平均 alpha")
 print(np.mean(ridge_alpha_list))
 print("")
 
-print("DeepGLM 使用的平均 lambda")
-print(np.mean(ridge_alpha_list))
+print("DeepGLM 使用的 lambda")
+print(lamda_for_deepgln)
 print("")
 
 print("Lasso CV 選出的平均 alpha")
