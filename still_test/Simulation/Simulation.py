@@ -46,9 +46,10 @@ lasso_r2_list = []
 attention_list = []
 adaptive_list = []
 
-# Ridge跟Lasso最好的alpha
+# Ridge、Lasso以及attention最好的alpha
 ridge_alpha_list = []
 lasso_alpha_list = []
+attn_lamda_list = []
 
 def generate_data(seed):
 
@@ -341,7 +342,7 @@ for sim in tqdm( range(n_simulations), desc="Simulation"):
 
     # Deep GLM 
 
-    lamda_for_deepgln = 3
+    # lamda_for_deepgln = 3
 
     p = X.shape[1]
 
@@ -350,6 +351,10 @@ for sim in tqdm( range(n_simulations), desc="Simulation"):
         dtype=X.dtype,
         device=X.device
     )
+
+    lamda_for_deepgln = (torch.trace(I)**0.5)
+
+    attn_lamda_list.append(lamda_for_deepgln)
 
     loss_history = []
 
@@ -746,7 +751,7 @@ print(np.mean(ridge_alpha_list))
 print("")
 
 print("DeepGLM 使用的 lambda")
-print(lamda_for_deepgln)
+print(np.mean(attn_lamda_list))
 print("")
 
 print("Lasso CV 選出的平均 alpha")

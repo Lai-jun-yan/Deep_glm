@@ -302,7 +302,7 @@ import torch.nn.functional as F
 
 # Deep GLM 
 
-lamda_for_deepgln = 3
+# lamda_for_deepgln = 3
 
 p = X.shape[1]
 
@@ -311,6 +311,8 @@ I = torch.eye(
     dtype=X.dtype,
     device=X.device
 )
+
+lamda_for_deepgln = (torch.trace(I)**0.5)
 
 loss_history = []
 
