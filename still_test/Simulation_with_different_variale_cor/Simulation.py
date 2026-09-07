@@ -135,8 +135,10 @@ def generate_data(seed):
 
         0.5,    # X6
         0.3,    # X7
+        
         0.3,    # X8
         0.2,    # X9
+        
         0.2     # X10
     ]).reshape(-1, 1)
 
