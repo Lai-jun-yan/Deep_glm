@@ -6,28 +6,22 @@
 
 ---
 
-## Current Progress (2026-08-17)
+## Current Progress (2026-09-07)
 
 ### Completed
 
-- 在scenarioB中，設計OLS會overfitting的情況
-- 在scenarioC中，測試老師的想法
-- 使用colab跑模擬，設定checkpoint並將結果保存在google drive
-- 在同一個邏輯下，動態調整資料的生成並最佳化ridge跟lasso以比較
+- 完成Simulation的500次模擬
+- 完成Simulation_with_different_variale_cor的設定
 
 ### Current Findings
 
-- 在scenarioB的情況下，DeepGLM表現有提升，可是幅度不大
-- Adaptive Regularixation Matrix在解釋上能與scenarioB對上
-- 在scenarioC中，DeepGLM相較OLS和Ridge，表現指標(係數偏差、MSE、R^2)皆為最佳
-- 在simulation中，DeepGLM已是最佳模型
+- 在Simulation的情況下，DeepGLM的平均表現最佳，但與OLS以及Ridge相比，並未達到統計顯著
+- 從Simulation的Adaptive matrix中，模型似乎會動態懲罰較小效果的變數以提升預測表現
 
 ---
 
 ## Next Steps
 
-- [x] 確認DeepGLM在不同生成資料的表現穩定性
-- [ ] 確認DeepGLM是否需要動態調整lamda
-- [ ] 使用simulation的資料跑其他機器學習模型
-- [ ] 嘗試其他的資料結構
-- [ ] 與老師討論後續方案
+- [ ] 使用Simulation的資料跑其他機器學習模型
+- [ ] Simulation_with_different_variale_cor的500次模擬
+
