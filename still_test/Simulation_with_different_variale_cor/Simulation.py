@@ -5,7 +5,7 @@ import pandas as pd
 # Simulation settings
 # ==========================================
 
-n_simulations = 50
+n_simulations = 100
 
 # ==========================================
 # 儲存結果
@@ -69,16 +69,16 @@ def generate_data(seed):
     # X1, X2, X3
     # ------------------------------------------
 
-    Sigma[0, 1] = Sigma[1, 0] = 0.95
-    Sigma[0, 2] = Sigma[2, 0] = 0.90
-    Sigma[1, 2] = Sigma[2, 1] = 0.90
+    Sigma[0, 1] = Sigma[1, 0] = 0.99
+    Sigma[0, 2] = Sigma[2, 0] = 0.99
+    Sigma[1, 2] = Sigma[2, 1] = 0.99
 
     # ------------------------------------------
     # Group 2: highly correlated predictors
     # X4, X5
     # ------------------------------------------
 
-    Sigma[3, 4] = Sigma[4, 3] = 0.85
+    Sigma[3, 4] = Sigma[4, 3] = 0.99
 
     # ------------------------------------------
     # Group 3: moderately correlated predictors
@@ -136,9 +136,9 @@ def generate_data(seed):
         0.5,    # X6
         0.3,    # X7
         
-        0.3,    # X8
-        0.2,    # X9
-        
+        1.0,    # X8  moderate
+        0.2,    # X9  weaker
+
         0.2     # X10
     ]).reshape(-1, 1)
 
