@@ -126,7 +126,7 @@ for sim in tqdm( range(n_simulations), desc="Simulation"):
 
 
     X_alpha = data_for_alpha[
-        ["Intercept"] + [f"X{i}" for i in range(1, 11)]
+        [f"X{i}" for i in range(1, 11)]
     ]
     Y_alpha = data_for_alpha["Y"]
 
@@ -159,7 +159,7 @@ for sim in tqdm( range(n_simulations), desc="Simulation"):
 
         model = Ridge(
             alpha=alpha,
-            fit_intercept=False
+            fit_intercept=True
         )
 
         scores = cross_val_score(
@@ -191,7 +191,7 @@ for sim in tqdm( range(n_simulations), desc="Simulation"):
 
         model = Lasso(
             alpha=alpha,
-            fit_intercept=False,
+            fit_intercept=True,
             max_iter=10000
         )
 
@@ -229,18 +229,24 @@ for sim in tqdm( range(n_simulations), desc="Simulation"):
     import numpy as np
 
     # ### 先用傳統統計模型驗證
-    X = data[cols]
+    # ==========================================
+    # 傳統模型：Drop Intercept，讓模型自己估計
+    # ==========================================
 
-    XTX = X.T @ X
+    traditional_cols = [f"X{i}" for i in range(1, 11)]
 
-    # 用套件驗證
+    X_traditional = data[traditional_cols]
+
+    XTX = X_traditional.T @ X_traditional
+
     import statsmodels.api as sm
 
-    X = data[cols]
+    # OLS 自己加入 intercept
+    X_ols = sm.add_constant(X_traditional)
 
     model = sm.OLS(
         data["Y"],
-        X          # 不加 constant
+        X_ols
     )
 
     result = model.fit()
@@ -253,7 +259,7 @@ for sim in tqdm( range(n_simulations), desc="Simulation"):
     # Split X and Y
     # ======================
 
-    X_train = data[cols].values
+    X_train = data[traditional_cols].values
     y_train = data["Y"].values
 
     # X_test = validation[cols].values
@@ -266,7 +272,7 @@ for sim in tqdm( range(n_simulations), desc="Simulation"):
 
     lam = best_alpha
 
-    ridge = Ridge(alpha=best_alpha, fit_intercept=False)
+    ridge = Ridge(alpha=best_alpha, fit_intercept=True)
 
     ridge.fit(
         X_train,
@@ -280,7 +286,7 @@ for sim in tqdm( range(n_simulations), desc="Simulation"):
     from sklearn.linear_model import Ridge, Lasso
     lasso = Lasso(
         alpha=best_lasso_alpha,
-        fit_intercept=False,
+        fit_intercept=True,
         max_iter=10000
     )
 
@@ -465,19 +471,37 @@ for sim in tqdm( range(n_simulations), desc="Simulation"):
     beta_ols = result.params.values
     beta_attn = beta1.detach().numpy()
     beta_attn = beta_attn.flatten()
-    beta_ridge = ridge.coef_
-    beta_lasso = lasso.coef_
+    beta_ridge = np.concatenate([
+        [ridge.intercept_],
+        ridge.coef_
+    ])
+    beta_lasso = np.concatenate([
+        [lasso.intercept_],
+        lasso.coef_
+    ])
 
-    X_val = validation[cols].values
+    X_val_traditional = validation[traditional_cols].values
     y_val = validation["Y"].values
 
-    y_pred_ols = X_val @ beta_ols
+    # OLS
+    y_pred_ols = result.predict(
+        sm.add_constant(X_val_traditional)
+    )
 
-    y_pred_attn = X_val @ beta_attn
+    # Ridge
+    y_pred_ridge = ridge.predict(
+        X_val_traditional
+    )
 
-    y_pred_ridge = X_val @ beta_ridge
+    # Lasso
+    y_pred_lasso = lasso.predict(
+        X_val_traditional
+    )
 
-    y_pred_lasso = X_val @ beta_lasso
+    # Attention
+    X_val_attention = validation[cols].values
+
+    y_pred_attn = X_val_attention @ beta_attn
 
     from sklearn.metrics import mean_squared_error
 
