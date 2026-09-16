@@ -6,13 +6,14 @@
 
 ---
 
-## Current Progress (2026-09-10)
+## Current Progress (2026-09-16)
 
 ### Completed
 
 - 完成Simulation的500次模擬
 - 完成Simulation_with_different_variale_cor的500次模擬
 - 建立好XGBoost的模擬架構
+- 重新調整baseline model的設定
 
 ### Current Findings
 
@@ -24,6 +25,7 @@
 
 ## Next Steps
 
+- [ ] 比較傳統模型自動估計截距項後的表現
 - [ ] 使用Simulation的資料跑其他機器學習模型
 - [ ] 了解XGBoost的原理
 - [X] 評估Simulation_with_different_variale_cor的performance
