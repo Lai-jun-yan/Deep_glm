@@ -6,7 +6,7 @@
 
 ---
 
-## Current Progress (2026-09-16)
+## Current Progress (2026-09-18)
 
 ### Completed
 
@@ -20,12 +20,13 @@
 - 在Simulation的情況下，DeepGLM的平均表現最佳，但與OLS以及Ridge相比，並未達到統計顯著
 - 在Simulation_with_different_variale_cor的情況下，DeepGLM的平均表現最佳，與OLS相比並未達到統計顯著，但Ridge(顯著)且lasso(邊界)
 - 從Simulation_with_different_variale_cor的模擬中發現，模型似乎會動態懲罰較小效果的變數以提升預測表現
+- 使用傳統的Ridge以及Lasso處理截距項，表現效果更不好
 
 ---
 
 ## Next Steps
 
-- [ ] 比較傳統模型自動估計截距項後的表現
+- [ ] 分析傳統模型自動估計截距項後的表現
 - [ ] 使用Simulation的資料跑其他機器學習模型
 - [ ] 了解XGBoost的原理
 - [X] 評估Simulation_with_different_variale_cor的performance
